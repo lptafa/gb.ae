@@ -1,0 +1,14 @@
+use "@/bus.ae"
+
+struct CPU {
+    bus: &Bus
+}
+
+def CPU::new(cart: &Cartridge): &CPU {
+    let cpu = calloc(1, sizeof(CPU)) as &CPU
+    *cpu = CPU(bus: Bus::new(cart))
+    return cpu
+}
+
+def CPU::read(addr: u16): u8 => .bus.read(addr)
+def CPU::write(addr: u16, data: u8) { bus.write(addr, data) }

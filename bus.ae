@@ -1,0 +1,20 @@
+use "@/cart.ae"
+
+
+struct Bus {
+    cart: &Cartridge
+}
+
+def Bus::new(cart: &Cartridge) -> Bus {
+    let bus = calloc(1, sizeof(Bus)) as &Bus
+    *bus = Bus(cart)
+    return bus
+}
+
+def Bus::read(&this, addr: u16): u8 {
+    panic("unimplemented Bus::read")
+}
+
+def Bus::write(&this, addr: u16, data: u8) {
+    panic("unimplemented Bus::write")
+}

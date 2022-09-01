@@ -1,0 +1,8 @@
+use "@/cart.ae"
+
+def main(argc: i32, argv: &string) {
+    if argc < 2 {
+        panic(`usage: {argv[0]} <rom>`)
+    }
+    let cart = Cartridge::load(argv[1])
+}
