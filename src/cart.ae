@@ -165,10 +165,9 @@ def Cartridge::load(filename: string): &Cartridge {
     return cart
 }
 
-def Cartridge::read(&this, addr: u16): u8 {
-    panic("unimplemented Cartridge::read")
-}
+def Cartridge::read(&this, addr: u16): u8 => .rom_data[addr] 
 
 def Cartridge::write(&this, addr: u16, data: u8) {
-    panic("unimplemented Cartridge::write")
+    println("Cartridge::write(0x%4.4X, 0x%2.2X)", addr, data)
+    .rom_data[addr] = data
 }

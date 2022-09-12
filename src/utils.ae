@@ -1,0 +1,18 @@
+
+def get_bit_u8(value: u8, bit: i32): bool => (value & (1 << bit) as u8) != 0u8
+def set_bit_u8(value: &u8, bit: i32, state: bool) {
+    if state {
+        *value = *value | (1 << bit) as u8
+    } else {
+        *value = *value & ~(1 << bit) as u8
+    }
+}
+
+def get_bit_u16(value: u16, bit: i32): bool => (value & (1 << bit) as u16) != 0u16
+def set_bit_u16(value: &u16, bit: i32, state: bool) {
+    if state {
+        *value = *value | (1 << bit) as u16
+    } else {
+        *value = *value & ~(1 << bit) as u16
+    }
+}

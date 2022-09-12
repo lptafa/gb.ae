@@ -1,0 +1,46 @@
+use "@/cart.ae"
+use "@/memory.ae"
+
+
+struct Bus {
+    cart: &Cartridge
+    wram: [u8; 0x2000]
+    hram: [u8; 0x80]
+}
+
+def Bus::new(cart: &Cartridge): &Bus {
+    let bus = calloc(1, sizeof(Bus)) as &Bus
+    bus.cart = cart
+    return bus
+}
+
+def Bus::read(&this, addr: u16): u8 {
+    let offset: u16
+    let region = MemoryRegion::from_address(addr, &offset)
+    return match region {
+        // We don't use `offset` here since we want to read relative to start of ROM,
+        // not the start of the bank
+        RomBank0 | RomBank1 => .cart.read(offset)
+        RamBank0 | RamBank1to7 => .wram[offset]
+        HighRam => .hram[offset]
+        else => {
+            println("Unhandled region in Bus::read: %s (%04x)", region.str(), addr)
+            yield 0 as u8
+        }
+    }
+}
+
+def Bus::write(&this, addr: u16, data: u8) {
+    let offset: u16
+    let region = MemoryRegion::from_address(addr, &offset)
+    match region {
+        // We don't use `offset` here since we want to read relative to start of ROM,
+        // not the start of the bank
+        RomBank0 | RomBank1 => .cart.write(offset, data)
+        RamBank0 | RamBank1to7 => .wram[offset] = data
+        HighRam => .hram[offset] = data
+        else => {
+            println("Unhandled region in Bus::write: %s (%04x), data: %02x", region.str(), addr, data)
+        }
+    }
+}

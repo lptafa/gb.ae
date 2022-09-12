@@ -1,7 +1,0 @@
-
-struct Emulator {
-    paused: bool
-    running: bool
-    ticks: i32
-}
-

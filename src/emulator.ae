@@ -1,0 +1,27 @@
+use "@/cpu.ae"
+
+struct Emulator {
+    paused: bool
+    running: bool
+
+    cpu: &CPU
+}
+
+def Emulator::new(cart: &Cartridge): &Emulator {
+    let emu = calloc(1, sizeof(Emulator)) as &Emulator
+    *emu = Emulator(
+        paused: false,
+        running: true,
+        cpu: CPU::new(cart)
+    )
+    return emu
+}
+
+def Emulator::run(&this) {
+    while .running {
+        if not .paused {
+            .running = .cpu.tick()
+        }
+    }
+}
+

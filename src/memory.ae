@@ -1,0 +1,102 @@
+
+enum MemoryRegion {
+    RomBank0
+    RomBank1
+    CHRRam
+    BGMap1
+    BGMap2
+    CartridgeRam
+    // FIXME: Missing another ROM Bank 0?
+    RamBank0
+    RamBank1to7
+    EchoRam
+    ObjectAttributeMemory
+    Unusable
+    IORegisters
+    HighRam
+    InterruptEnableRegister
+}
+
+def MemoryRegion::str(this): string => match this {
+    RomBank0 => "ROM Bank 0"
+    RomBank1 => "ROM Bank 1 - Switchable"
+    CHRRam => "CHR RAM"
+    BGMap1 => "BG Map 1"
+    BGMap2 => "BG Map 2"
+    CartridgeRam => "Cartridge RAM"
+    RamBank0 => "RAM Bank 0"
+    RamBank1to7 => "RAM Bank 1-7 - switchable - color only"
+    EchoRam => "Echo RAM - reserved"
+    ObjectAttributeMemory => "Object Attribute Memory"
+    Unusable => "Unusable - Reserved"
+    IORegisters => "I/O Registers"
+    HighRam => "High RAM"
+    InterruptEnableRegister => "Interrupt Enable Register"
+}
+
+def MemoryRegion::from_address(address: u16, offset: &u16): MemoryRegion {
+    // FIXME: This is a hack to avoid casting all constants to u16
+    // Remove this when constants can infer the type
+    let addr = (address as u32) as i32
+    if 0x0000 <= addr <= 0x7FFF {
+        if offset? then *offset = (addr - 0x0000) as u16
+        if addr <= 0x3FFF {
+            return MemoryRegion::RomBank0
+        } else {
+            return MemoryRegion::RomBank1
+        }
+    }
+    if 0x8000 <= addr <= 0x97FF {
+        if offset? then *offset = (addr - 0x8000) as u16
+        return MemoryRegion::CHRRam
+    }
+    if 0x9800 <= addr <= 0x9BFF {
+        if offset? then *offset = (addr - 0x9800) as u16
+        return MemoryRegion::BGMap1
+    }
+    if 0x9C00 <= addr <= 0x9FFF {
+        if offset? then *offset = (addr - 0x9C00) as u16
+        return MemoryRegion::BGMap2
+    }
+    if 0xA000 <= addr <= 0xBFFF {
+        if offset? then *offset = (addr - 0xA000) as u16
+        return MemoryRegion::CartridgeRam
+    }
+    if 0xC000 <= addr <= 0xDFFF {
+        if offset? then *offset = (addr - 0xC000) as u16
+        if addr < 0xCFFF {
+            return MemoryRegion::RamBank0
+        } else {
+            return MemoryRegion::RamBank1to7
+        }
+    }
+    if 0xE000 <= addr <= 0xFDFF {
+        if offset? then *offset = (addr - 0xE000) as u16
+        return MemoryRegion::EchoRam
+    }
+    if 0xFE00 <= addr <= 0xFE9F {
+        if offset? then *offset = (addr - 0xFE00) as u16
+        return MemoryRegion::ObjectAttributeMemory
+    }
+    if 0xFEA0 <= addr <= 0xFEFF {
+        if offset? then *offset = (addr - 0xFEA0) as u16
+        return MemoryRegion::Unusable
+    }
+    if 0xFF00 <= addr <= 0xFF7F {
+        if offset? then *offset = (addr - 0xFF00) as u16
+        return MemoryRegion::IORegisters
+    }
+    if 0xFF80 <= addr <= 0xFFFF {
+        if offset? then *offset = (addr - 0xFF80) as u16
+        return MemoryRegion::HighRam
+    }
+    if addr == 0xFFFF {
+        if offset? then *offset = 0u16
+        return MemoryRegion::InterruptEnableRegister
+    }
+
+    // Should never reach here
+    println("Invalid address in MemoryRegion::from_address: 0x%04x", address)
+    *offset = 0 as u16
+    return MemoryRegion::Unusable
+}
