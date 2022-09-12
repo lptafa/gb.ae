@@ -18,9 +18,12 @@ def Emulator::new(cart: &Cartridge): &Emulator {
 }
 
 def Emulator::run(&this) {
+    let num_insts = 0u64
     while .running {
         if not .paused {
+            if DEBUG print("[%06llu] | ", num_insts)
             .running = .cpu.tick()
+            num_insts += 1u64
         }
     }
 }

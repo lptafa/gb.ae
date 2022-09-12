@@ -1,19 +1,6 @@
 use "@/bus.ae"
 use "@/utils.ae"
 
-struct CPURegisters {
-    a: u8
-    f: u8
-    b: u8
-    c: u8
-    d: u8
-    e: u8
-    h: u8
-    l: u8
-    pc: u16
-    sp: u16
-}
-
 enum Reg {
     A
     B
@@ -46,6 +33,35 @@ def Reg::str(this): string => match this {
     HL => "HL"
     SP => "SP"
     PC => "PC"
+}
+
+enum Cond {
+    None
+    NZ
+    Z
+    NC
+    C
+}
+
+def Cond::str(this): string => match this {
+    None => "None"
+    NZ => "NZ"
+    Z => "Z"
+    NC => "NC"
+    C => "C"
+}
+
+struct CPURegisters {
+    a: u8
+    f: u8
+    b: u8
+    c: u8
+    d: u8
+    e: u8
+    h: u8
+    l: u8
+    pc: u16
+    sp: u16
 }
 
 def CPURegisters::af(&this): u16 => (.a as u16 << 8u16) | .f as u16
@@ -139,17 +155,17 @@ def CPU::new(cart: &Cartridge): &CPU {
     return cpu
 }
 
-def CPU::zero_flag(&this): bool => get_bit_u8(.regs.f, 7)
-def CPU::set_zero_flag(&this, val: bool) { set_bit_u8(&.regs.f, 7, val) }
+def CPU::flag_z(&this): bool => get_bit_u8(.regs.f, 7)
+def CPU::set_flag_z(&this, val: bool) { set_bit_u8(&.regs.f, 7, val) }
 
-def CPU::sub_flag(&this): bool => get_bit_u8(.regs.f, 6)
-def CPU::set_sub_flag(&this, val: bool) { set_bit_u8(&.regs.f, 6, val) }
+def CPU::flag_n(&this): bool => get_bit_u8(.regs.f, 6)
+def CPU::set_flag_n(&this, val: bool) { set_bit_u8(&.regs.f, 6, val) }
 
-def CPU::half_carry_flag(&this): bool => get_bit_u8(.regs.f, 5)
-def CPU::set_half_carry_flag(&this, val: bool) { set_bit_u8(&.regs.f, 5, val) }
+def CPU::flag_h(&this): bool => get_bit_u8(.regs.f, 5)
+def CPU::set_flag_h(&this, val: bool) { set_bit_u8(&.regs.f, 5, val) }
 
-def CPU::carry_flag(&this): bool => get_bit_u8(.regs.f, 4)
-def CPU::set_carry_flag(&this, val: bool) { set_bit_u8(&.regs.f, 4, val) }
+def CPU::flag_c(&this): bool => get_bit_u8(.regs.f, 4)
+def CPU::set_flag_c(&this, val: bool) { set_bit_u8(&.regs.f, 4, val) }
 
 def CPU::read(&this, addr: u16): u8 => .bus.read(addr)
 
@@ -164,10 +180,10 @@ def CPU::read_u16(&this, addr: u16): u16 {
 }
 
 def CPU::set_flags(&this, zero: i32, sub: i32, half_carry: i32, carry: i32) {
-    if zero != -1       then .set_zero_flag(zero as bool)
-    if sub != -1        then .set_sub_flag(sub as bool)
-    if half_carry != -1 then .set_half_carry_flag(half_carry as bool)
-    if carry != -1      then .set_carry_flag(carry as bool)
+    if zero != -1       then .set_flag_z(zero as bool)
+    if sub != -1        then .set_flag_n(sub as bool)
+    if half_carry != -1 then .set_flag_h(half_carry as bool)
+    if carry != -1      then .set_flag_c(carry as bool)
 }
 
 def CPU::push_reg8(&this, reg: Reg) {
@@ -176,7 +192,7 @@ def CPU::push_reg8(&this, reg: Reg) {
     .write(.regs.sp, val)
 }
 
-def CPU::push_reg16(&this, reg: Reg) {
+def CPU::push_r16(&this, reg: Reg) {
     let val = .regs.get16(reg)
     .regs.sp -= 1u16
     .write(.regs.sp, (val >> 8u16) as u8)
@@ -184,35 +200,66 @@ def CPU::push_reg16(&this, reg: Reg) {
     .write(.regs.sp, val as u8)
 }
 
-const DEBUG = true
+const DEBUG = false
 
-def CPU::op_nop(&this, opcode: u8) {
+def CPU::op_nop(&this) {
     if DEBUG println("NOP")
 
     .clock += 4u64
     .regs.pc += 1u16
 }
 
-def CPU::op_jmp(&this, opcode: u8) {
+def CPU::op_jmp(&this, cond: Cond) {
     let addr = .read_u16(.regs.pc + 1u16)
-    if DEBUG println("JMP $%04x", addr)
+    if cond == Cond::None {
+        if DEBUG println("JP $%04x", addr)
+    } else {
+        if DEBUG println("JP %s, $%04x", cond.str(), addr)
+    }
 
-    .clock += 16u64
+    let should_jump = match cond {
+        Cond::None => true
+        Cond::NZ => not .flag_z()
+        Cond::Z => .flag_z()
+        Cond::NC => not .flag_c()
+        Cond::C => .flag_c()
+    }
 
-    .regs.pc = addr
+    if should_jump {
+        .regs.pc = addr
+        .clock += 16u64
+    } else {
+        .regs.pc += 3u16
+        .clock += 12u64
+    }
 }
 
-def CPU::op_jmp_rel(&this, opcode: u8) {
+def CPU::op_jmp_rel(&this, cond: Cond) {
     let offset = .read(.regs.pc + 1u16) as i8
-    if DEBUG println("JR $%02x", offset)
+    if cond == Cond::None {
+        if DEBUG println("JR $%02x", offset as u8)
+    } else {
+        if DEBUG println("JR %s, $%02x", cond.str(), offset as u8)
+    }
 
-    .clock += 12u64
+    let should_jump = match cond {
+        Cond::None => true
+        Cond::NZ => not .flag_z()
+        Cond::Z => .flag_z()
+        Cond::NC => not .flag_c()
+        Cond::C => .flag_c()
+    }
 
     .regs.pc += 2u16
-    .regs.pc = (.regs.pc as i16 + offset as i16) as u16
+    if should_jump {
+        .clock += 12u64
+        .regs.pc = (.regs.pc as i16 + offset as i16) as u16
+    } else {
+        .clock += 8u64
+    }
 }
 
-def CPU::op_di(&this, opcode: u8) {
+def CPU::op_di(&this) {
     if DEBUG println("DI")
 
     .ime = false
@@ -221,7 +268,7 @@ def CPU::op_di(&this, opcode: u8) {
     .regs.pc += 1u16
 }
 
-def CPU::op_xor_r(&this, opcode: u8, val: Reg) {
+def CPU::op_xor_r(&this, val: Reg) {
     // XOR register
     if DEBUG println("XOR %s", val.str())
 
@@ -233,7 +280,7 @@ def CPU::op_xor_r(&this, opcode: u8, val: Reg) {
     .regs.pc += 1u16
 }
 
-def CPU::op_xor_hl(&this, opcode: u8) {
+def CPU::op_xor_hl(&this) {
     // XOR (HL)
     if DEBUG println("XOR (HL)")
 
@@ -245,7 +292,7 @@ def CPU::op_xor_hl(&this, opcode: u8) {
     .regs.pc += 1u16
 }
 
-def CPU::op_xor_imm(&this, opcode: u8) {
+def CPU::op_xor_imm(&this) {
     // XOR immediate
     let val = .read(.regs.pc + 1u16)
     if DEBUG println("XOR $%02x", val)
@@ -258,7 +305,7 @@ def CPU::op_xor_imm(&this, opcode: u8) {
     .regs.pc += 2u16
 }
 
-def CPU::op_ld_r_r(&this, opcode: u8, dst: Reg, src: Reg) {
+def CPU::op_ld_r_r(&this, dst: Reg, src: Reg) {
     // Load register into register
     if DEBUG println("LD %s, %s", dst.str(), src.str())
 
@@ -288,7 +335,7 @@ def CPU::op_ld_r_r(&this, opcode: u8, dst: Reg, src: Reg) {
     .regs.pc += 1u16
 }
 
-def CPU::op_ld_r_hl(&this, opcode: u8, dst: Reg) {
+def CPU::op_ld_r_hl(&this, dst: Reg) {
     // Load (HL) into register
     if DEBUG println("LD %s, (HL)", dst.str())
 
@@ -308,7 +355,7 @@ def CPU::op_ld_r_hl(&this, opcode: u8, dst: Reg) {
     .regs.pc += 1u16
 }
 
-def CPU::op_ld_hl_r(&this, opcode: u8, src: Reg) {
+def CPU::op_ld_hl_r(&this, src: Reg) {
     // Load register into (HL)
     let val = .regs.get8(src)
     if DEBUG println("LD (HL), %s [%02X]", src.str(), val)
@@ -319,7 +366,7 @@ def CPU::op_ld_hl_r(&this, opcode: u8, src: Reg) {
     .regs.pc += 1u16
 }
 
-def CPU::op_ld_imm_a(&this, opcode: u8) {
+def CPU::op_ld_imm_a(&this) {
     // Load A into immediate
     let addr = .read_u16(.regs.pc + 1u16)
     if DEBUG println("LD ($%04X), A", addr)
@@ -330,18 +377,17 @@ def CPU::op_ld_imm_a(&this, opcode: u8) {
     .regs.pc += 3u16
 }
 
-def CPU::op_ld_reg16_imm(&this, opcode: u8, dst: Reg) {
+def CPU::op_ld_r16_imm(&this, dst: Reg) {
     let val = .read_u16(.regs.pc + 1u16)
     if DEBUG println("LD %s, $%04X", dst.str(), val)
 
     .regs.set16(dst, val)
-    if DEBUG println("  - %s = %04X", dst.str(), val)
 
     .clock += 12u64
     .regs.pc += 3u16
 }
 
-def CPU::op_ld_r_imm(&this, opcode: u8, dest: Reg) {
+def CPU::op_ld_r_imm(&this, dest: Reg) {
     let val = .read(.regs.pc + 1u16)
     if DEBUG println("LD %s, $%02X", dest.str(), val)
 
@@ -351,7 +397,7 @@ def CPU::op_ld_r_imm(&this, opcode: u8, dest: Reg) {
     .regs.pc += 2u16
 }
 
-def CPU::op_ld_ff00n_a(&this, opcode: u8) {
+def CPU::op_ld_ff00n_a(&this) {
     let n = .read(.regs.pc + 1u16)
     if DEBUG println("LD (FF00+$%02X), A", n)
 
@@ -362,7 +408,7 @@ def CPU::op_ld_ff00n_a(&this, opcode: u8) {
     .regs.pc += 2u16
 }
 
-def CPU::op_ld_a_ff00n(&this, opcode: u8) {
+def CPU::op_ld_a_ff00n(&this) {
     let n = .read(.regs.pc + 1u16)
     if DEBUG println("LD A, (FF00+$%02X)", n)
 
@@ -373,7 +419,7 @@ def CPU::op_ld_a_ff00n(&this, opcode: u8) {
     .regs.pc += 2u16
 }
 
-def CPU::op_ld_ff00c_a(&this, opcode: u8) {
+def CPU::op_ld_ff00c_a(&this) {
     let addr = 0xFF00u16 | (.regs.c as u16)
     if DEBUG println("LD (FF00+C [%04X]), A", addr)
 
@@ -383,7 +429,7 @@ def CPU::op_ld_ff00c_a(&this, opcode: u8) {
     .regs.pc += 1u16
 }
 
-def CPU::op_ld_a_ff00c(&this, opcode: u8) {
+def CPU::op_ld_a_ff00c(&this) {
     let addr = 0xFF00u16 | (.regs.c as u16)
     if DEBUG println("LD A, (FF00+C [%04x])", addr)
 
@@ -393,17 +439,69 @@ def CPU::op_ld_a_ff00c(&this, opcode: u8) {
     .regs.pc += 1u16
 }
 
-def CPU::op_push16(&this, opcode: u8, src: Reg) {
+def CPU::op_ldi_hl_a(&this, inc: i16) {
+    if inc > 0i16 {
+        if DEBUG println("LDI (HL), A")
+    } else {
+        if DEBUG println("LDD (HL), A")
+    }
+
+    .write(.regs.hl(), .regs.a)
+
+    let new_hl = ((.regs.hl() as i16) + inc) as u16
+    .regs.set_hl(new_hl)
+
+    .clock += 8u64
+    .regs.pc += 1u16
+}
+
+def CPU::op_ldi_a_hl(&this, inc: i16) {
+    if inc > 0i16 {
+        if DEBUG println("LDI A, (HL)")
+    } else {
+        if DEBUG println("LDD A, (HL)")
+    }
+
+    .regs.a = .read(.regs.hl())
+
+    let new_hl = ((.regs.hl() as i16) + inc) as u16
+    .regs.set_hl(new_hl)
+
+    .clock += 8u64
+    .regs.pc += 1u16
+}
+
+def CPU::op_ld_a_imm16(&this) {
+    let addr = .read_u16(.regs.pc + 1u16)
+    if DEBUG println("LD A, ($%04X)", addr)
+
+    .regs.a = .read(addr)
+
+    .clock += 16u64
+    .regs.pc += 3u16
+}
+
+def CPU::op_ld_r_r16(&this, dst: Reg, src: Reg) {
+    let addr = .regs.get16(src)
+    if DEBUG println("LD %s, (%s [%04X])", dst.str(), src.str(), addr)
+
+    .regs.set8(dst, .read(addr))
+
+    .clock += 8u64
+    .regs.pc += 1u16
+}
+
+def CPU::op_push16(&this, src: Reg) {
     // Push 16-bit register onto stack
     if DEBUG println("PUSH %s", src.str())
 
-    .push_reg16(src)
+    .push_r16(src)
 
     .clock += 16u64
     .regs.pc += 1u16
 }
 
-def CPU::op_pop16(&this, opcode: u8, dst: Reg) {
+def CPU::op_pop16(&this, dst: Reg) {
     // Pop 16-bit register from stack
     if DEBUG println("POP %s", dst.str())
 
@@ -415,7 +513,89 @@ def CPU::op_pop16(&this, opcode: u8, dst: Reg) {
     .regs.pc += 1u16
 }
 
-def CPU::op_halt(&this, opcode: u8) {
+def CPU::op_alu_r(&this, handler: fn(&CPU, u8), src: Reg) {
+    let val = .regs.get8(src)
+
+    handler(this, val)
+    if DEBUG println(" %s [%02X]", src.str(), val)
+
+    .clock += 4u64
+    .regs.pc += 1u16
+}
+
+def CPU::op_alu_imm(&this, handler: fn(&CPU, u8)) {
+    let val = .read(.regs.pc + 1u16)
+
+    handler(this, val)
+    if DEBUG println(" $%02X", val)
+
+    .clock += 8u64
+    .regs.pc += 2u16
+}
+
+def CPU::op_alu_hl(&this, handler: fn(&CPU, u8)) {
+    let val = .read(.regs.hl())
+
+    handler(this, val)
+    if DEBUG println(" (HL [%02X]) ", val)
+
+    .clock += 8u64
+    .regs.pc += 1u16
+}
+
+def CPU::op_inc_r16(&this, reg: Reg, offset: i16) {
+    // Increment 16-bit register
+    if offset > 0i16 {
+        if DEBUG println("INC %s", reg.str())
+    } else {
+        if DEBUG println("DEC %s", reg.str())
+    }
+
+    let val = .regs.get16(reg)
+    let new_val = ((val as i16) + offset) as u16
+    .regs.set16(reg, new_val)
+
+    .clock += 8u64
+    .regs.pc += 1u16
+}
+
+def CPU::op_inc_r(&this, reg: Reg, offset: i8) {
+    // Increment 8-bit register
+    if offset > 0i8 {
+        if DEBUG println("INC %s", reg.str())
+    } else {
+        if DEBUG println("DEC %s", reg.str())
+    }
+
+    let prev = .regs.get8(reg) as i8
+    let val = (prev + offset) as u8
+    .regs.set8(reg, val)
+
+    .set_flag_z(val == 0u8)
+    .set_flag_n(false)
+    .set_flag_h((val & 0x0Fu8) == 0x00u8)
+
+    .clock += 4u64
+    .regs.pc += 1u16
+}
+
+def CPU::inc_mem_hl(&this) {
+    // Increment memory at (HL)
+    if DEBUG println("INC (HL)")
+
+    let val = .read(.regs.hl())
+    let result = val + 1u8
+    .write(.regs.hl(), result)
+
+    .set_flag_z(result == 0u8)
+    .set_flag_n(false)
+    .set_flag_h((val & 0x0Fu8) == 0u8)
+
+    .clock += 12u64
+    .regs.pc += 1u16
+}
+
+def CPU::op_halt(&this) {
     if DEBUG println("HALT")
 
     .halted = true
@@ -424,19 +604,33 @@ def CPU::op_halt(&this, opcode: u8) {
     .regs.pc += 1u16
 }
 
-def CPU::op_call(&this, opcode: u8) {
-    if DEBUG println("CALL nn nn")
-
+def CPU::op_call(&this, cond: Cond) {
     let addr = .read_u16(.regs.pc + 1u16)
+    if cond == Cond::None {
+        if DEBUG println("CALL $%04X", addr)
+    } else {
+        if DEBUG println("CALL %s, $%04X", cond.str(), addr)
+    }
+
+    let should_call = match cond {
+        Cond::None => true,
+        Cond::NZ => not .flag_z(),
+        Cond::Z => .flag_z(),
+        Cond::NC => not .flag_c(),
+        Cond::C => .flag_c(),
+    }
+
     .regs.pc += 3u16
-
-    .push_reg16(Reg::PC)
-
-    .clock += 24u64
-    .regs.pc = addr
+    if should_call {
+        .push_r16(Reg::PC)
+        .clock += 24u64
+        .regs.pc = addr
+    } else {
+        .clock += 12u64
+    }
 }
 
-def CPU::op_ret(&this, opcode: u8) {
+def CPU::op_ret(&this) {
     if DEBUG println("RET")
 
     let low = .read(.regs.sp) as u16
@@ -448,152 +642,275 @@ def CPU::op_ret(&this, opcode: u8) {
     .regs.pc = (high << 8u16) | low
 }
 
+def CPU::op_or_r(&this, src: Reg) {
+    if DEBUG println("OR %s", src.str())
+
+    let val = .regs.get8(src)
+    .regs.a = .regs.a | val
+
+    .set_flag_z(.regs.a == 0u8)
+    .set_flag_n(false)
+    .set_flag_h(false)
+    .set_flag_c(false)
+
+    .clock += 4u64
+    .regs.pc += 1u16
+}
+
+// This is a hack to get around the fact that we can't pass
+// unbound methods
+
+def ALU_CP(cpu: &CPU, val: u8) {
+    if DEBUG print("CP")
+    // This is a hack to avoid sign-extending
+    let a = (cpu.regs.a as u16) as i16
+    let b = (val as u16) as i16
+    let result = a - b
+
+    cpu.set_flag_z(result == 0i16)
+    cpu.set_flag_n(true)
+    cpu.set_flag_h((a & 0xFi16) - (b & 0xFi16) < 0i16)
+    cpu.set_flag_c(result < 0i16)
+}
+
+def ALU_AND(cpu: &CPU, val: u8) {
+    if DEBUG print("AND")
+    let result = cpu.regs.a & val
+
+    cpu.set_flag_z(result == 0u8)
+    cpu.set_flag_n(false)
+    cpu.set_flag_h(true)
+    cpu.set_flag_c(false)
+
+    cpu.regs.a = result
+}
+
+def ALU_ADD(cpu: &CPU, val: u8) {
+    if DEBUG print("ADD")
+    let a = cpu.regs.a as u16
+    let b = val as u16
+    let result = a + b
+
+    cpu.set_flag_z(result == 0u16)
+    cpu.set_flag_n(false)
+    cpu.set_flag_h((a & 0xFu16) + (b & 0xFu16) > 0xFu16)
+    cpu.set_flag_c(result > 0xFFu16)
+
+    cpu.regs.a = result as u8
+}
+
+def ALU_SUB(cpu: &CPU, val: u8) {
+    // FIXME: is stuff breaking here becuase of the signed/unsigned types?
+    if DEBUG print("SUB")
+    let a = cpu.regs.a as i16
+    let b = val as i16
+    let result = a - b
+
+    cpu.set_flag_z(result == 0i16)
+    cpu.set_flag_n(true)
+    cpu.set_flag_h((a & 0xFi16) - (b & 0xFi16) < 0i16)
+    cpu.set_flag_c(result < 0i16)
+
+    cpu.regs.a = result as u8
+}
+
+
 def CPU::tick(&this): bool {
     let opcode = .read(.regs.pc)
     if DEBUG print("0x%04x: (%02x): ", .regs.pc, opcode)
     match opcode {
         // 0x0y
-        0x00u8 => .op_nop(opcode)
+        0x00u8 => .op_nop()
+        0x01u8 => .op_ld_r16_imm(Reg::BC)
 
-        0x06u8 => .op_ld_r_imm(opcode, Reg::B)
+        0x03u8 => .op_inc_r16(Reg::BC, offset: 1i16)
+        0x04u8 => .op_inc_r(Reg::B, offset: 1i8)
+        0x05u8 => .op_inc_r(Reg::B, offset: -1i8)
+        0x06u8 => .op_ld_r_imm(Reg::B)
 
-        0x0eu8 => .op_ld_r_imm(opcode, Reg::C)
+        0x0cu8 => .op_inc_r(Reg::C, offset: 1i8)
+        0x0du8 => .op_inc_r(Reg::C, offset: -1i8)
+        0x0eu8 => .op_ld_r_imm(Reg::C)
 
         // 0x1y
-        0x16u8 => .op_ld_r_imm(opcode, Reg::D)
-        0x18u8 => .op_jmp_rel(opcode)
+        0x11u8 => .op_ld_r16_imm(Reg::DE)
 
-        0x1eu8 => .op_ld_r_imm(opcode, Reg::E)
+        0x13u8 => .op_inc_r16(Reg::DE, offset: 1i16)
+
+        0x16u8 => .op_ld_r_imm(Reg::D)
+
+        0x18u8 => .op_jmp_rel(Cond::None)
+
+        0x1au8 => .op_ld_r_r16(dst: Reg::A, src: Reg::DE)
+
+        0x1eu8 => .op_ld_r_imm(Reg::E)
 
         // 0x2y
-        0x21u8 => .op_ld_reg16_imm(opcode, Reg::HL)
-        0x26u8 => .op_ld_r_imm(opcode, Reg::H)
+        0x20u8 => .op_jmp_rel(Cond::NZ)
+        0x21u8 => .op_ld_r16_imm(Reg::HL)
+        0x22u8 => .op_ldi_hl_a(inc: 1i16)
+        0x23u8 => .op_inc_r16(Reg::HL, offset: 1i16)
+        0x24u8 => .op_inc_r(Reg::H, offset: 1i8)
 
-        0x2eu8 => .op_ld_r_imm(opcode, Reg::L)
+        0x26u8 => .op_ld_r_imm(Reg::H)
+
+        0x28u8 => .op_jmp_rel(Cond::Z)
+
+        0x2au8 => .op_ldi_a_hl(inc: 1i16)
+
+        0x2cu8 => .op_inc_r(Reg::L, offset: 1i8)
+        0x2du8 => .op_inc_r(Reg::L, offset: -1i8)
+        0x2eu8 => .op_ld_r_imm(Reg::L)
 
         // 0x3y
-        0x31u8 => .op_ld_reg16_imm(opcode, Reg::SP)
+        0x31u8 => .op_ld_r16_imm(Reg::SP)
+        0x32u8 => .op_ldi_hl_a(inc: -1i16)
 
-        0x3eu8 => .op_ld_r_imm(opcode, Reg::A)
+        0x3au8 => .op_ldi_a_hl(inc: -1i16)
+
+        0x3eu8 => .op_ld_r_imm(Reg::A)
 
         // 0x4y
-        0x40u8 => .op_ld_r_r(opcode, dst: Reg::B, src: Reg::B)
-        0x41u8 => .op_ld_r_r(opcode, dst: Reg::B, src: Reg::C)
-        0x42u8 => .op_ld_r_r(opcode, dst: Reg::B, src: Reg::D)
-        0x43u8 => .op_ld_r_r(opcode, dst: Reg::B, src: Reg::E)
-        0x44u8 => .op_ld_r_r(opcode, dst: Reg::B, src: Reg::H)
-        0x45u8 => .op_ld_r_r(opcode, dst: Reg::B, src: Reg::L)
-        0x46u8 => .op_ld_r_hl(opcode, dst: Reg::B)
-        0x47u8 => .op_ld_r_r(opcode, dst: Reg::B, src: Reg::A)
-        0x48u8 => .op_ld_r_r(opcode, dst: Reg::C, src: Reg::B)
-        0x49u8 => .op_ld_r_r(opcode, dst: Reg::C, src: Reg::C)
-        0x4au8 => .op_ld_r_r(opcode, dst: Reg::C, src: Reg::D)
-        0x4bu8 => .op_ld_r_r(opcode, dst: Reg::C, src: Reg::E)
-        0x4cu8 => .op_ld_r_r(opcode, dst: Reg::C, src: Reg::H)
-        0x4du8 => .op_ld_r_r(opcode, dst: Reg::C, src: Reg::L)
-        0x4eu8 => .op_ld_r_hl(opcode, Reg::C)
-        0x4fu8 => .op_ld_r_r(opcode, dst: Reg::C, src: Reg::A)
+        0x40u8 => .op_ld_r_r(dst: Reg::B, src: Reg::B)
+        0x41u8 => .op_ld_r_r(dst: Reg::B, src: Reg::C)
+        0x42u8 => .op_ld_r_r(dst: Reg::B, src: Reg::D)
+        0x43u8 => .op_ld_r_r(dst: Reg::B, src: Reg::E)
+        0x44u8 => .op_ld_r_r(dst: Reg::B, src: Reg::H)
+        0x45u8 => .op_ld_r_r(dst: Reg::B, src: Reg::L)
+        0x46u8 => .op_ld_r_hl(dst: Reg::B)
+        0x47u8 => .op_ld_r_r(dst: Reg::B, src: Reg::A)
+        0x48u8 => .op_ld_r_r(dst: Reg::C, src: Reg::B)
+        0x49u8 => .op_ld_r_r(dst: Reg::C, src: Reg::C)
+        0x4au8 => .op_ld_r_r(dst: Reg::C, src: Reg::D)
+        0x4bu8 => .op_ld_r_r(dst: Reg::C, src: Reg::E)
+        0x4cu8 => .op_ld_r_r(dst: Reg::C, src: Reg::H)
+        0x4du8 => .op_ld_r_r(dst: Reg::C, src: Reg::L)
+        0x4eu8 => .op_ld_r_hl(Reg::C)
+        0x4fu8 => .op_ld_r_r(dst: Reg::C, src: Reg::A)
 
         // 0x5y
-        0x50u8 => .op_ld_r_r(opcode, dst: Reg::D, src: Reg::B)
-        0x51u8 => .op_ld_r_r(opcode, dst: Reg::D, src: Reg::C)
-        0x52u8 => .op_ld_r_r(opcode, dst: Reg::D, src: Reg::D)
-        0x53u8 => .op_ld_r_r(opcode, dst: Reg::D, src: Reg::E)
-        0x54u8 => .op_ld_r_r(opcode, dst: Reg::D, src: Reg::H)
-        0x55u8 => .op_ld_r_r(opcode, dst: Reg::D, src: Reg::L)
-        0x56u8 => .op_ld_r_hl(opcode, Reg::D)
-        0x57u8 => .op_ld_r_r(opcode, dst: Reg::D, src: Reg::A)
-        0x58u8 => .op_ld_r_r(opcode, dst: Reg::E, src: Reg::B)
-        0x59u8 => .op_ld_r_r(opcode, dst: Reg::E, src: Reg::C)
-        0x5au8 => .op_ld_r_r(opcode, dst: Reg::E, src: Reg::D)
-        0x5bu8 => .op_ld_r_r(opcode, dst: Reg::E, src: Reg::E)
-        0x5cu8 => .op_ld_r_r(opcode, dst: Reg::E, src: Reg::H)
-        0x5du8 => .op_ld_r_r(opcode, dst: Reg::E, src: Reg::L)
-        0x5eu8 => .op_ld_r_hl(opcode, Reg::E)
-        0x5fu8 => .op_ld_r_r(opcode, dst: Reg::E, src: Reg::A)
+        0x50u8 => .op_ld_r_r(dst: Reg::D, src: Reg::B)
+        0x51u8 => .op_ld_r_r(dst: Reg::D, src: Reg::C)
+        0x52u8 => .op_ld_r_r(dst: Reg::D, src: Reg::D)
+        0x53u8 => .op_ld_r_r(dst: Reg::D, src: Reg::E)
+        0x54u8 => .op_ld_r_r(dst: Reg::D, src: Reg::H)
+        0x55u8 => .op_ld_r_r(dst: Reg::D, src: Reg::L)
+        0x56u8 => .op_ld_r_hl(Reg::D)
+        0x57u8 => .op_ld_r_r(dst: Reg::D, src: Reg::A)
+        0x58u8 => .op_ld_r_r(dst: Reg::E, src: Reg::B)
+        0x59u8 => .op_ld_r_r(dst: Reg::E, src: Reg::C)
+        0x5au8 => .op_ld_r_r(dst: Reg::E, src: Reg::D)
+        0x5bu8 => .op_ld_r_r(dst: Reg::E, src: Reg::E)
+        0x5cu8 => .op_ld_r_r(dst: Reg::E, src: Reg::H)
+        0x5du8 => .op_ld_r_r(dst: Reg::E, src: Reg::L)
+        0x5eu8 => .op_ld_r_hl(Reg::E)
+        0x5fu8 => .op_ld_r_r(dst: Reg::E, src: Reg::A)
 
         // 0x6y
-        0x60u8 => .op_ld_r_r(opcode, dst: Reg::H, src: Reg::B)
-        0x61u8 => .op_ld_r_r(opcode, dst: Reg::H, src: Reg::C)
-        0x62u8 => .op_ld_r_r(opcode, dst: Reg::H, src: Reg::D)
-        0x63u8 => .op_ld_r_r(opcode, dst: Reg::H, src: Reg::E)
-        0x64u8 => .op_ld_r_r(opcode, dst: Reg::H, src: Reg::H)
-        0x65u8 => .op_ld_r_r(opcode, dst: Reg::H, src: Reg::L)
-        0x66u8 => .op_ld_r_hl(opcode, Reg::H)
-        0x67u8 => .op_ld_r_r(opcode, dst: Reg::H, src: Reg::A)
-        0x68u8 => .op_ld_r_r(opcode, dst: Reg::L, src: Reg::B)
-        0x69u8 => .op_ld_r_r(opcode, dst: Reg::L, src: Reg::C)
-        0x6au8 => .op_ld_r_r(opcode, dst: Reg::L, src: Reg::D)
-        0x6bu8 => .op_ld_r_r(opcode, dst: Reg::L, src: Reg::E)
-        0x6cu8 => .op_ld_r_r(opcode, dst: Reg::L, src: Reg::H)
-        0x6du8 => .op_ld_r_r(opcode, dst: Reg::L, src: Reg::L)
-        0x6eu8 => .op_ld_r_hl(opcode, Reg::L)
-        0x6fu8 => .op_ld_r_r(opcode, dst: Reg::L, src: Reg::A)
+        0x60u8 => .op_ld_r_r(dst: Reg::H, src: Reg::B)
+        0x61u8 => .op_ld_r_r(dst: Reg::H, src: Reg::C)
+        0x62u8 => .op_ld_r_r(dst: Reg::H, src: Reg::D)
+        0x63u8 => .op_ld_r_r(dst: Reg::H, src: Reg::E)
+        0x64u8 => .op_ld_r_r(dst: Reg::H, src: Reg::H)
+        0x65u8 => .op_ld_r_r(dst: Reg::H, src: Reg::L)
+        0x66u8 => .op_ld_r_hl(Reg::H)
+        0x67u8 => .op_ld_r_r(dst: Reg::H, src: Reg::A)
+        0x68u8 => .op_ld_r_r(dst: Reg::L, src: Reg::B)
+        0x69u8 => .op_ld_r_r(dst: Reg::L, src: Reg::C)
+        0x6au8 => .op_ld_r_r(dst: Reg::L, src: Reg::D)
+        0x6bu8 => .op_ld_r_r(dst: Reg::L, src: Reg::E)
+        0x6cu8 => .op_ld_r_r(dst: Reg::L, src: Reg::H)
+        0x6du8 => .op_ld_r_r(dst: Reg::L, src: Reg::L)
+        0x6eu8 => .op_ld_r_hl(Reg::L)
+        0x6fu8 => .op_ld_r_r(dst: Reg::L, src: Reg::A)
 
         // 0x7y
-        0x70u8 => .op_ld_hl_r(opcode, src: Reg::B)
-		0x71u8 => .op_ld_hl_r(opcode, src: Reg::C)
-		0x72u8 => .op_ld_hl_r(opcode, src: Reg::D)
-		0x73u8 => .op_ld_hl_r(opcode, src: Reg::E)
-		0x74u8 => .op_ld_hl_r(opcode, src: Reg::H)
-		0x75u8 => .op_ld_hl_r(opcode, src: Reg::L)
-		0x76u8 => .op_halt(opcode)
-		0x77u8 => .op_ld_hl_r(opcode, src: Reg::A)
-        0x78u8 => .op_ld_r_r(opcode, dst: Reg::A, src: Reg::B)
-		0x79u8 => .op_ld_r_r(opcode, dst: Reg::A, src: Reg::C)
-		0x7au8 => .op_ld_r_r(opcode, dst: Reg::A, src: Reg::D)
-		0x7bu8 => .op_ld_r_r(opcode, dst: Reg::A, src: Reg::E)
-		0x7cu8 => .op_ld_r_r(opcode, dst: Reg::A, src: Reg::H)
-		0x7du8 => .op_ld_r_r(opcode, dst: Reg::A, src: Reg::L)
-        0x7eu8 => .op_ld_r_hl(opcode, Reg::A)
-        0x7fu8 => .op_ld_r_r(opcode, dst: Reg::A, src: Reg::A)
+        0x70u8 => .op_ld_hl_r(src: Reg::B)
+		0x71u8 => .op_ld_hl_r(src: Reg::C)
+		0x72u8 => .op_ld_hl_r(src: Reg::D)
+		0x73u8 => .op_ld_hl_r(src: Reg::E)
+		0x74u8 => .op_ld_hl_r(src: Reg::H)
+		0x75u8 => .op_ld_hl_r(src: Reg::L)
+		0x76u8 => .op_halt()
+		0x77u8 => .op_ld_hl_r(src: Reg::A)
+        0x78u8 => .op_ld_r_r(dst: Reg::A, src: Reg::B)
+		0x79u8 => .op_ld_r_r(dst: Reg::A, src: Reg::C)
+		0x7au8 => .op_ld_r_r(dst: Reg::A, src: Reg::D)
+		0x7bu8 => .op_ld_r_r(dst: Reg::A, src: Reg::E)
+		0x7cu8 => .op_ld_r_r(dst: Reg::A, src: Reg::H)
+		0x7du8 => .op_ld_r_r(dst: Reg::A, src: Reg::L)
+        0x7eu8 => .op_ld_r_hl(Reg::A)
+        0x7fu8 => .op_ld_r_r(dst: Reg::A, src: Reg::A)
 
         // 0xay
-        0xa8u8 => .op_xor_r(opcode, Reg::B)
-        0xa9u8 => .op_xor_r(opcode, Reg::C)
-        0xaau8 => .op_xor_r(opcode, Reg::D)
-        0xabu8 => .op_xor_r(opcode, Reg::E)
-        0xacu8 => .op_xor_r(opcode, Reg::H)
-        0xadu8 => .op_xor_r(opcode, Reg::L)
-        0xaeu8 => .op_xor_hl(opcode)
-        0xafu8 => .op_xor_r(opcode, Reg::A)
+        0xa8u8 => .op_xor_r(Reg::B)
+        0xa9u8 => .op_xor_r(Reg::C)
+        0xaau8 => .op_xor_r(Reg::D)
+        0xabu8 => .op_xor_r(Reg::E)
+        0xacu8 => .op_xor_r(Reg::H)
+        0xadu8 => .op_xor_r(Reg::L)
+        0xaeu8 => .op_xor_hl()
+        0xafu8 => .op_xor_r(Reg::A)
+
+        // 0xby
+        0xb0u8 => .op_or_r(Reg::B)
+        0xb1u8 => .op_or_r(Reg::C)
+        0xb2u8 => .op_or_r(Reg::D)
+        0xb3u8 => .op_or_r(Reg::E)
+        0xb4u8 => .op_or_r(Reg::H)
+        0xb5u8 => .op_or_r(Reg::L)
+
+        0xb7u8 => .op_or_r(Reg::A)
+        0xb8u8 => .op_alu_r(ALU_CP, Reg::B)
+        0xb9u8 => .op_alu_r(ALU_CP, Reg::C)
+        0xbau8 => .op_alu_r(ALU_CP, Reg::D)
+        0xbbu8 => .op_alu_r(ALU_CP, Reg::E)
+        0xbcu8 => .op_alu_r(ALU_CP, Reg::H)
+        0xbdu8 => .op_alu_r(ALU_CP, Reg::L)
+        0xbeu8 => .op_alu_hl(ALU_CP)
+        0xbfu8 => .op_alu_r(ALU_CP, Reg::A)
 
         // 0xcy
-        0xc1u8 => .op_pop16(opcode, Reg::BC)
-        0xc3u8 => .op_jmp(opcode)
+        0xc1u8 => .op_pop16(Reg::BC)
+        0xc3u8 => .op_jmp(Cond::None)
+        0xc4u8 => .op_call(Cond::NZ)
+        0xc5u8 => .op_push16(Reg::BC)
+        0xc6u8 => .op_alu_imm(ALU_ADD)
 
-        0xc5u8 => .op_push16(opcode, Reg::BC)
+        0xc9u8 => .op_ret()
 
-        0xc9u8 => .op_ret(opcode)
-
-        0xcdu8 => .op_call(opcode)
+        0xcdu8 => .op_call(Cond::None)
 
         // 0xdy
-        0xd1u8 => .op_pop16(opcode, Reg::DE)
+        0xd1u8 => .op_pop16(Reg::DE)
 
-        0xd5u8 => .op_push16(opcode, Reg::DE)
+        0xd5u8 => .op_push16(Reg::DE)
+        0xd6u8 => .op_alu_imm(ALU_SUB)
 
 
         // 0xey
-        0xe0u8 => .op_ld_ff00n_a(opcode)
-        0xe1u8 => .op_pop16(opcode, Reg::HL)
-        0xe2u8 => .op_ld_ff00c_a(opcode)
+        0xe0u8 => .op_ld_ff00n_a()
+        0xe1u8 => .op_pop16(Reg::HL)
+        0xe2u8 => .op_ld_ff00c_a()
 
-        0xe5u8 => .op_push16(opcode, Reg::HL)
+        0xe5u8 => .op_push16(Reg::HL)
+        0xe6u8 => .op_alu_imm(ALU_AND)
 
-        0xeau8 => .op_ld_imm_a(opcode)
-        0xeeu8 => .op_xor_imm(opcode)
+        0xeau8 => .op_ld_imm_a()
+
+        0xeeu8 => .op_xor_imm()
 
         // 0xfy
-        0xf0u8 => .op_ld_a_ff00n(opcode)
-        0xf1u8 => .op_pop16(opcode, Reg::AF)
+        0xf0u8 => .op_ld_a_ff00n()
+        0xf1u8 => .op_pop16(Reg::AF)
+        0xf2u8 => .op_ld_a_ff00c()
+        0xf3u8 => .op_di()
 
+        0xf5u8 => .op_push16(Reg::AF)
 
-        0xf2u8 => .op_ld_a_ff00c(opcode)
-        0xf3u8 => .op_di(opcode)
+        0xfau8 => .op_ld_a_imm16()
 
-        0xf5u8 => .op_push16(opcode, Reg::AF)
-
+        0xfeu8 => .op_alu_imm(ALU_CP)
 
         else => {
             println("Unknown opcode")
