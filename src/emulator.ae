@@ -1,18 +1,34 @@
+use "@/cart.ae"
+use "@/bus.ae"
 use "@/cpu.ae"
+use "@/ppu.ae"
+use "@/timer.ae"
 
 struct Emulator {
     paused: bool
     running: bool
+    cycles: u64
 
+    cart: &Cartridge
     cpu: &CPU
+    bus: &Bus
+    ppu: &PPU
+    timer: &Timer
 }
 
 def Emulator::new(cart: &Cartridge): &Emulator {
     let emu = calloc(1, sizeof(Emulator)) as &Emulator
+    let bus = Bus::new(emu)
+
     *emu = Emulator(
         paused: false,
         running: true,
-        cpu: CPU::new(cart)
+        cycles: 0u64,
+        cart: cart,
+        cpu: CPU::new(bus),
+        bus: bus,
+        ppu: PPU::new(emu),
+        timer: Timer::new(),
     )
     return emu
 }
@@ -20,10 +36,17 @@ def Emulator::new(cart: &Cartridge): &Emulator {
 def Emulator::run(&this) {
     let num_insts = 0u64
     while .running {
-        if not .paused {
-            if DEBUG print("[%06llu] | ", num_insts)
-            .running = .cpu.tick()
-            num_insts += 1u64
+        if DEBUG print("[%06llu] | ", num_insts)
+        num_insts += 1u64
+
+        // Run the CPU, get number of CPU cycles
+        let cycles = .cpu.tick()
+        .cycles += cycles
+
+        // TODO: Run PPU for appropriate number of cycles
+        for let i = 0u64; i < cycles; i += 1u64 {
+            .ppu.tick()
+            .timer.tick()
         }
     }
 }

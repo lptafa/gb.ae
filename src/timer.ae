@@ -1,0 +1,22 @@
+
+struct Timer {
+    div: u16
+    tima: u8
+    tma: u8
+    tac: u8
+}
+
+def Timer::new(): &Timer {
+    let timer = calloc(1, sizeof(Timer)) as &Timer
+    timer.div = 0xAC00u16
+    return timer
+}
+
+def Timer::enabled(&this): bool => .tac & 0x2u8 != 0u8
+
+def Timer::input_clock(&this): u8 => .tac & 0b11u8
+
+
+def Timer::tick(&this, cycles: u64) {
+    // TODO: Implement Timer tick
+}

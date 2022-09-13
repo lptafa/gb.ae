@@ -1,17 +1,58 @@
-use "@/cart.ae"
+use "@/emulator.ae"
 use "@/memory.ae"
 
-
 struct Bus {
-    cart: &Cartridge
+    emu: &Emulator
     wram: [u8; 0x2000]
     hram: [u8; 0x80]
+
+    sb: u8 // Serial Transfer Data
+    sc: u8 // Serial Transfer Control
 }
 
-def Bus::new(cart: &Cartridge): &Bus {
+def Bus::new(emu: &Emulator): &Bus {
     let bus = calloc(1, sizeof(Bus)) as &Bus
-    bus.cart = cart
+    bus.emu = emu
     return bus
+}
+
+def Bus::io_read(&this, addr: u16): u8 => match addr {
+    0xff01u16 => .sb
+    0xff02u16 => .sc
+
+    // FIXME: Is this correct for timer.div?
+    0xff04u16 => (.emu.timer.div >> 8u16) as u8
+    0xff05u16 => .emu.timer.tima
+    0xff06u16 => .emu.timer.tma
+    0xff07u16 => .emu.timer.tac
+
+    0xff0fu16 => .emu.cpu.reg_if
+
+    0xff40u16 => .emu.ppu.lcdc
+    0xff41u16 => .emu.ppu.stat
+    0xff42u16 => .emu.ppu.scy
+    0xff43u16 => .emu.ppu.scx
+    0xff44u16 => .emu.ppu.ly
+    0xff45u16 => .emu.ppu.lyc
+    0xff47u16 => .emu.ppu.bgp
+    0xff48u16 => .emu.ppu.obp0
+
+    0xffffu16 => .emu.cpu.reg_ie
+
+    0xff10u16 | 0xff11u16 | 0xff12u16 | 0xff13u16 | 0xff14u16 |
+    0xff16u16 | 0xff17u16 | 0xff18u16 | 0xff19u16 | 0xff1au16 |
+    0xff1bu16 | 0xff1cu16 | 0xff1du16 | 0xff1eu16 | 0xff30u16 |
+    0xff20u16 | 0xff21u16 | 0xff22u16 | 0xff23u16 | 0xff24u16 |
+    0xff25u16 | 0xff26u16  => {
+        println("Ignoring read from audio register 0x%04x", addr)
+        return 0xffu8
+    }
+
+    else => {
+        println("unhandled address in Bus::io_read: %04x", addr)
+        exit(1)
+        yield 0u8
+    }
 }
 
 def Bus::read(&this, addr: u16): u8 {
@@ -20,12 +61,49 @@ def Bus::read(&this, addr: u16): u8 {
     return match region {
         // We don't use `offset` here since we want to read relative to start of ROM,
         // not the start of the bank
-        RomBank0 | RomBank1 => .cart.read(offset)
+        RomBank0 | RomBank1 => .emu.cart.read(offset)
         RamBank0 | RamBank1to7 => .wram[offset]
         HighRam => .hram[offset]
+        IORegisters => .io_read(addr)
         else => {
             println("Unhandled region in Bus::read: %s (%04x)", region.str(), addr)
             yield 0 as u8
+        }
+    }
+}
+
+def Bus::io_write(&this, addr: u16, data: u8) {
+    match addr {
+        0xff01u16 => .sb = data
+        0xff02u16 => .sc = data
+
+        0xff05u16 => .emu.timer.tima = data
+        0xff06u16 => .emu.timer.tma = data
+        0xff07u16 => .emu.timer.tac = data
+        0xff0fu16 => .emu.cpu.reg_if = data
+
+        0xff40u16 => .emu.ppu.lcdc = data
+        0xff41u16 => .emu.ppu.stat = data
+        0xff42u16 => .emu.ppu.scy = data
+        0xff43u16 => .emu.ppu.scx = data
+        0xff44u16 => .emu.ppu.ly = data
+        0xff45u16 => .emu.ppu.lyc = data
+        0xff47u16 => .emu.ppu.bgp = data
+        0xff48u16 => .emu.ppu.obp0 = data
+
+        0xffffu16 => .emu.cpu.reg_ie = data
+
+        0xff10u16 | 0xff11u16 | 0xff12u16 | 0xff13u16 | 0xff14u16 |
+        0xff16u16 | 0xff17u16 | 0xff18u16 | 0xff19u16 | 0xff1au16 |
+        0xff1bu16 | 0xff1cu16 | 0xff1du16 | 0xff1eu16 | 0xff30u16 |
+        0xff20u16 | 0xff21u16 | 0xff22u16 | 0xff23u16 | 0xff24u16 |
+        0xff25u16 | 0xff26u16 => {
+            println("Ignoring write to audio register 0x%04x (%02X)", addr, data)
+        }
+
+        else => {
+            println("unhandled write in Bus::io_write: %04x <- %02x", addr, data)
+            exit(1)
         }
     }
 }
@@ -36,9 +114,10 @@ def Bus::write(&this, addr: u16, data: u8) {
     match region {
         // We don't use `offset` here since we want to read relative to start of ROM,
         // not the start of the bank
-        RomBank0 | RomBank1 => .cart.write(offset, data)
+        RomBank0 | RomBank1 => .emu.cart.write(offset, data)
         RamBank0 | RamBank1to7 => .wram[offset] = data
         HighRam => .hram[offset] = data
+        IORegisters => .io_write(addr, data)
         else => {
             println("Unhandled region in Bus::write: %s (%04x), data: %02x", region.str(), addr, data)
         }

@@ -1,0 +1,37 @@
+use "@/emulator.ae"
+
+
+struct PPU {
+    emu: &Emulator
+
+    ly: u8   // LCD Y-coordinate (0-153)
+    lyc: u8  // LY Compare
+
+    lcdc: u8 // LCD Control
+
+    scx: u8  // Scroll X
+    scy: u8  // Scroll Y
+
+    bgp: u8  // BG Palette Data
+    obp0: u8 // Object Palette 0 Data
+
+    stat: u8 // LCD Status
+}
+
+def PPU::new(emu: &Emulator): &PPU {
+    let ppu = calloc(1, sizeof(PPU)) as &PPU
+    ppu.emu = emu
+    return ppu
+}
+
+def PPU::read(&this, addr: u16): u8 {
+    panic("PPU::read not implemented")
+}
+
+def PPU::write(&this, addr: u16, val: u8) {
+    panic("PPU::write not implemented")
+}
+
+def PPU::tick(&this, cycles: u64) {
+    // TODO: Implement PPU tick
+}
