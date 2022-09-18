@@ -1,5 +1,9 @@
 use "@/emulator.ae"
 use "@/memory.ae"
+use "@/cpu.ae"
+
+const SERIAL_DEBUG = true
+const BUS_DEBUG = DEBUG
 
 struct Bus {
     emu: &Emulator
@@ -8,6 +12,9 @@ struct Bus {
 
     sb: u8 // Serial Transfer Data
     sc: u8 // Serial Transfer Control
+
+    serial_msg: [char; 4096]
+    serial_msg_len: i32
 }
 
 def Bus::new(emu: &Emulator): &Bus {
@@ -44,7 +51,7 @@ def Bus::io_read(&this, addr: u16): u8 => match addr {
     0xff1bu16 | 0xff1cu16 | 0xff1du16 | 0xff1eu16 | 0xff30u16 |
     0xff20u16 | 0xff21u16 | 0xff22u16 | 0xff23u16 | 0xff24u16 |
     0xff25u16 | 0xff26u16  => {
-        println("Ignoring read from audio register 0x%04x", addr)
+        if BUS_DEBUG then println("Ignoring read from audio register 0x%04x", addr)
         return 0xffu8
     }
 
@@ -66,7 +73,7 @@ def Bus::read(&this, addr: u16): u8 {
         HighRam => .hram[offset]
         IORegisters => .io_read(addr)
         else => {
-            println("Unhandled region in Bus::read: %s (%04x)", region.str(), addr)
+            if BUS_DEBUG then println("Unhandled region in Bus::read: %s (%04x)", region.str(), addr)
             yield 0 as u8
         }
     }
@@ -75,7 +82,18 @@ def Bus::read(&this, addr: u16): u8 {
 def Bus::io_write(&this, addr: u16, data: u8) {
     match addr {
         0xff01u16 => .sb = data
-        0xff02u16 => .sc = data
+
+        // NOTE: this is just storing serial out into a buffer.
+        0xff02u16 => {
+            .sc = data
+            if data == 0x81u8 {
+                let c = .sb as char
+                .serial_msg[.serial_msg_len] = c
+                .serial_msg_len += 1
+                if SERIAL_DEBUG then print("%c", c)
+                // if SERIAL_DEBUG then println("%s", .serial_msg)
+            }
+        }
 
         0xff05u16 => .emu.timer.tima = data
         0xff06u16 => .emu.timer.tma = data
@@ -98,7 +116,7 @@ def Bus::io_write(&this, addr: u16, data: u8) {
         0xff1bu16 | 0xff1cu16 | 0xff1du16 | 0xff1eu16 | 0xff30u16 |
         0xff20u16 | 0xff21u16 | 0xff22u16 | 0xff23u16 | 0xff24u16 |
         0xff25u16 | 0xff26u16 => {
-            println("Ignoring write to audio register 0x%04x (%02X)", addr, data)
+            if BUS_DEBUG then println("Ignoring write to audio register 0x%04x (%02X)", addr, data)
         }
 
         else => {
@@ -119,7 +137,7 @@ def Bus::write(&this, addr: u16, data: u8) {
         HighRam => .hram[offset] = data
         IORegisters => .io_write(addr, data)
         else => {
-            println("Unhandled region in Bus::write: %s (%04x), data: %02x", region.str(), addr, data)
+            if BUS_DEBUG then println("Unhandled region in Bus::write: %s (%04x), data: %02x", region.str(), addr, data)
         }
     }
 }

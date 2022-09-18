@@ -32,6 +32,6 @@ def PPU::write(&this, addr: u16, val: u8) {
     panic("PPU::write not implemented")
 }
 
-def PPU::tick(&this, cycles: u64) {
+def PPU::tick(&this) {
     // TODO: Implement PPU tick
 }

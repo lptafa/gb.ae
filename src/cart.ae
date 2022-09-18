@@ -144,23 +144,24 @@ def Cartridge::load(filename: string): &Cartridge {
     cart.header = (cart.rom_data + 0x100) as &RomHeader
     cart.header.title[15] = '\0'
 
-    println("Cartridge Loaded:");
-    println("  Title    : %s", cart.header.title);
-    println("  Type     : %2.2X (%s)", cart.header.type, cart.type_name());
-    println("  ROM Size : %d KB", 32 << cart.header.rom_size as i32);
-    println("  RAM Size : %2.2X", cart.header.ram_size);
-    println("  LIC Code : %2.2X (%s)", cart.header.lic_code, cart.lic_name());
-    println("  ROM Vers : %2.2X", cart.header.version);
+    // println("Cartridge Loaded:");
+    // println("  Title    : %s", cart.header.title);
+    // println("  Type     : %2.2X (%s)", cart.header.type, cart.type_name());
+    // println("  ROM Size : %d KB", 32 << cart.header.rom_size as i32);
+    // println("  RAM Size : %2.2X", cart.header.ram_size);
+    // println("  LIC Code : %2.2X (%s)", cart.header.lic_code, cart.lic_name());
+    // println("  ROM Vers : %2.2X", cart.header.version);
 
-    let checksum = cart.checksum()
-    let lower = (checksum & 0xFF as u16) as u8
+    // let checksum = cart.checksum()
+    // let lower = (checksum & 0xFF as u16) as u8
 
-    print("  Checksum : 0x%2.2X ", lower)
-    if lower == cart.header.checksum {
-        println("(PASSED)");
-    } else {
-        println("(FAILED)");
-    }
+    // print("  Checksum : 0x%2.2X ", lower)
+    // if lower == cart.header.checksum {
+    //     println("(PASSED)");
+    // } else {
+    //     println("(FAILED)");
+    // }
+    // println("----------------------------------------")
 
     return cart
 }

@@ -17,6 +17,6 @@ def Timer::enabled(&this): bool => .tac & 0x2u8 != 0u8
 def Timer::input_clock(&this): u8 => .tac & 0b11u8
 
 
-def Timer::tick(&this, cycles: u64) {
+def Timer::tick(&this) {
     // TODO: Implement Timer tick
 }
