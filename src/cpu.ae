@@ -497,6 +497,17 @@ def CPU::op_ld_imm16_sp(&this) {
     .regs.pc += 3u16
 }
 
+def CPU::op_ld_mem_hl_imm(&this) {
+    let addr = .regs.hl()
+    let val = .read(.regs.pc + 1u16)
+    if DEBUG println("LD (HL [$%04X]), $%02X", addr, val)
+
+    .write(addr, val)
+
+    .clock += 12u64
+    .regs.pc += 2u16
+}
+
 def CPU::op_push16(&this, src: Reg) {
     // Push 16-bit register onto stack
     if DEBUG println("PUSH %s", src)
@@ -515,6 +526,12 @@ def CPU::op_pop16(&this, dst: Reg) {
     if DEBUG println("POP %s", dst)
 
     let val = .read_u16(.regs.sp)
+
+    if dst == Reg::AF {
+        // The upper byte of AF is always 0
+        val = (val & 0xFFF0u16)
+    }
+
     .regs.set16(dst, val)
     .regs.sp += 2u16
 
@@ -596,13 +613,18 @@ def CPU::op_inc_mem_hl(&this, offset: i8) {
         if DEBUG println("DEC (HL)")
     }
 
-    let val = .read(.regs.hl()) as i8
-    let result = (val + offset) as u8
-    .write(.regs.hl(), result)
+    let prev = .read(.regs.hl()) as i16
+    let off = offset as i16
+    let val = (prev + off) as u8
+    .write(.regs.hl(), val)
 
-    .set_flag_z(result == 0u8)
+    .set_flag_z(val == 0u8)
     .set_flag_n(offset < 0i8)
-    .set_flag_h((val & 0x0Fi8) == 0i8)
+    if offset > 0i8 {
+        .set_flag_h((val & 0x0Fu8) == 0x00u8)
+    } else {
+        .set_flag_h((val & 0x0Fu8) == 0x0fu8)
+    }
 
     .clock += 12u64
     .regs.pc += 1u16
@@ -672,6 +694,25 @@ def CPU::op_ret(&this, cond: Cond) {
         .clock += 8u64
         .regs.pc += 1u16
     }
+}
+
+def CPU::op_reti(&this) {
+    .op_ret(Cond::None)
+    // FIXME: Should there be a delay here?
+    .ime = true
+}
+
+def CPU::op_rst(&this, addr: u16) {
+    if DEBUG println("RST $%02X", addr)
+    let val = .regs.pc + 1u16
+
+    .regs.sp -= 1u16
+    .write(.regs.sp, (val >> 8u16) as u8)
+    .regs.sp -= 1u16
+    .write(.regs.sp, (val & 0xFFu16) as u8)
+
+    .regs.pc = addr
+    .clock += 16u64
 }
 
 def CPU::op_rrca(&this) {
@@ -803,20 +844,28 @@ def CPU::op_ccf(&this) {
 
 def CPU::op_daa(&this) {
     if DEBUG println("DAA")
-    let val = .regs.a as u16
-    if .flag_n() {
-        if .flag_h() then val = (val - 0x06u16) & 0xFFu16
-        if .flag_c() then val -= 0x60u16
-    } else {
-        if .flag_h() or (val & 0x0Fu16) > 0x09u16 then val += 0x06u16
-        if .flag_c() or val > 0x9Fu16 then val += 0x60u16
+    let u = 0u8
+    let carry = false
+
+    if .flag_h() or (not .flag_n() and (.regs.a & 0xFu8) > 9u8) {
+        u = 0x6u8
     }
 
-    .set_flag_z(val == 0u16)
-    .set_flag_h(false)
-    .set_flag_c(val > 0xFFu16)
+    if .flag_c() or (not .flag_n() and .regs.a > 0x99u8) {
+        u = u | 0x60u8
+        carry = true
+    }
 
-    .regs.a = val as u8
+    if .flag_n() {
+        .regs.a -= u
+    } else {
+        .regs.a += u
+    }
+
+    .set_flag_z(.regs.a == 0u8)
+    .set_flag_h(false)
+    .set_flag_c(carry)
+
     .clock += 4u64
     .regs.pc += 1u16
 }
@@ -952,7 +1001,7 @@ def CPU::op_bit(&this, bit: u8, reg: Reg) {
         yield .regs.get8(reg)
     }
 
-    .set_flag_z(get_bit_u8(val, bit))
+    .set_flag_z(not get_bit_u8(val, bit))
     .set_flag_n(false)
     .set_flag_h(true)
 
@@ -1263,6 +1312,8 @@ def CPU::handle_instruction(&this) {
         0x07u8 => .op_rlca()
         0x08u8 => .op_ld_imm16_sp()
         0x09u8 => .op_add_hl_r16(Reg::BC)
+        0x0au8 => .op_ld_r_r16(Reg::A, Reg::BC)
+        0x0bu8 => .op_inc_r16(Reg::BC, offset: -1i16)
         0x0cu8 => .op_inc_r(Reg::C, offset: 1i8)
         0x0du8 => .op_inc_r(Reg::C, offset: -1i8)
         0x0eu8 => .op_ld_r_imm(Reg::C)
@@ -1297,7 +1348,7 @@ def CPU::handle_instruction(&this) {
         0x28u8 => .op_jmp_rel(Cond::Z)
         0x29u8 => .op_add_hl_r16(Reg::HL)
         0x2au8 => .op_ldi_a_hl(inc: 1i16)
-
+        0x2bu8 => .op_inc_r16(Reg::HL, offset: -1i16)
         0x2cu8 => .op_inc_r(Reg::L, offset: 1i8)
         0x2du8 => .op_inc_r(Reg::L, offset: -1i8)
         0x2eu8 => .op_ld_r_imm(Reg::L)
@@ -1310,7 +1361,7 @@ def CPU::handle_instruction(&this) {
         0x33u8 => .op_inc_r16(Reg::SP, offset: 1i16)
         0x34u8 => .op_inc_mem_hl(offset: 1i8)
         0x35u8 => .op_inc_mem_hl(offset: -1i8)
-
+        0x36u8 => .op_ld_mem_hl_imm()
         0x37u8 => .op_scf()
         0x38u8 => .op_jmp_rel(Cond::C)
         0x39u8 => .op_add_hl_r16(Reg::SP)
@@ -1474,23 +1525,30 @@ def CPU::handle_instruction(&this) {
         0xc4u8 => .op_call(Cond::NZ)
         0xc5u8 => .op_push16(Reg::BC)
         0xc6u8 => .op_alu_imm(ALU_ADD)
-
+        0xc7u8 => .op_rst(0x00u16)
         0xc8u8 => .op_ret(Cond::Z)
         0xc9u8 => .op_ret(Cond::None)
-
+        0xcau8 => .op_jmp(Cond::Z)
         0xcbu8 => .handle_cb_instruction()
-
+        0xccu8 => .op_call(Cond::Z)
         0xcdu8 => .op_call(Cond::None)
         0xceu8 => .op_alu_imm(ALU_ADDC)
+        0xcfu8 => .op_rst(0x08u16)
 
         // 0xdy
         0xd0u8 => .op_ret(Cond::NC)
         0xd1u8 => .op_pop16(Reg::DE)
-
+        0xd2u8 => .op_jmp(Cond::NC)
+        0xd4u8 => .op_call(Cond::NC)
         0xd5u8 => .op_push16(Reg::DE)
         0xd6u8 => .op_alu_imm(ALU_SUB)
+        0xd7u8 => .op_rst(0x10u16)
         0xd8u8 => .op_ret(Cond::C)
-
+        0xd9u8 => .op_reti()
+        0xdau8 => .op_jmp(Cond::C)
+        0xdcu8 => .op_call(Cond::C)
+        0xdeu8 => .op_alu_imm(ALU_SUBC)
+        0xdfu8 => .op_rst(0x18u16)
 
         // 0xey
         0xe0u8 => .op_ld_ff00n_a()
@@ -1499,11 +1557,13 @@ def CPU::handle_instruction(&this) {
 
         0xe5u8 => .op_push16(Reg::HL)
         0xe6u8 => .op_alu_imm(ALU_AND)
+        0xe7u8 => .op_rst(0x20u16)
         0xe8u8 => .op_add_sp_imm()
         0xe9u8 => .op_jmp_hl()
         0xeau8 => .op_ld_imm_a()
 
         0xeeu8 => .op_alu_imm(ALU_XOR)
+        0xefu8 => .op_rst(0x28u16)
 
         // 0xfy
         0xf0u8 => .op_ld_a_ff00n()
@@ -1513,13 +1573,14 @@ def CPU::handle_instruction(&this) {
 
         0xf5u8 => .op_push16(Reg::AF)
         0xf6u8 => .op_alu_imm(ALU_OR)
-
+        0xf7u8 => .op_rst(0x30u16)
         0xf8u8 => .op_ld_hl_spn()
         0xf9u8 => .op_ld_sp_hl()
         0xfau8 => .op_ld_a_imm16()
         0xfbu8 => .op_ei()
 
         0xfeu8 => .op_alu_imm(ALU_CP)
+        0xffu8 => .op_rst(0x38u16)
 
         else => panic(`Unknown opcode: {opcode:02x}`)
     }
