@@ -1,3 +1,4 @@
+use "@/cpu.ae"
 
 struct Timer {
     div: u16
@@ -8,7 +9,7 @@ struct Timer {
 
 def Timer::new(): &Timer {
     let timer = calloc(1, sizeof(Timer)) as &Timer
-    timer.div = 0xAC00u16
+    timer.div = 0xAC00
     return timer
 }
 
@@ -16,7 +17,26 @@ def Timer::enabled(&this): bool => .tac & 0x2u8 != 0u8
 
 def Timer::input_clock(&this): u8 => .tac & 0b11u8
 
+def Timer::tick(&this): bool {
+    let prev = .div
+    .div += 1
 
-def Timer::tick(&this) {
-    // TODO: Implement Timer tick
+    let check_bit: u16 = match .tac & 0b11 {
+        0b00 => 9
+        0b01 => 3
+        0b10 => 5
+        0b11 => 7
+        else => panic("unreachable")
+    }
+
+    let should_update = ((prev >> check_bit) & 0x1) > ((.div >> check_bit) & 0x1)
+    if should_update and .tac & 0x3 != 0 {
+        .tima += 1
+        if .tima == 0 {
+            .tima = .tma
+            return true
+        }
+    }
+
+    return false
 }

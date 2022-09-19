@@ -46,7 +46,9 @@ def Emulator::run(&this) {
         // TODO: Run PPU for appropriate number of cycles
         for let i = 0u64; i < cycles; i += 1 {
             .ppu.tick()
-            .timer.tick()
+            if .timer.tick() {
+                .cpu.request_interrupt(Timer)
+            }
         }
     }
 }

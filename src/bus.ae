@@ -71,6 +71,7 @@ def Bus::read(&this, addr: u16): u8 {
         RamBank0 | RamBank1to7 => .wram[offset]
         HighRam => .hram[offset]
         IORegisters => .io_read(addr)
+        InterruptEnableRegister => .emu.cpu.reg_ie
         else => {
             if BUS_DEBUG then println("Unhandled region in Bus::read: %s (%04x)", region.str(), addr)
             yield 0u8
@@ -135,6 +136,7 @@ def Bus::write(&this, addr: u16, data: u8) {
         RamBank0 | RamBank1to7 => .wram[offset] = data
         HighRam => .hram[offset] = data
         IORegisters => .io_write(addr, data)
+        InterruptEnableRegister => .emu.cpu.reg_ie = data
         else => {
             if BUS_DEBUG then println("Unhandled region in Bus::write: %s (%04x), data: %02x", region.str(), addr, data)
         }

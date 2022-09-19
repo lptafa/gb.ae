@@ -126,6 +126,22 @@ def CPURegisters::set16(&this, reg: Reg, val: u16) {
     }
 }
 
+enum InterruptType {
+    VBlank
+    LCDStat
+    Timer
+    Serial
+    Joypad
+}
+
+def InterruptType::bit(this): u8 => match this {
+    VBlank => 0
+    LCDStat => 1
+    Timer => 2
+    Serial => 3
+    Joypad => 4
+}
+
 struct CPU {
     bus: &Bus
     regs: CPURegisters
@@ -207,6 +223,10 @@ def CPU::check_condition(&this, cond: Cond): bool => match cond {
     Z => .flag_z()
     NC => not .flag_c()
     C => .flag_c()
+}
+
+def CPU::request_interrupt(&this, type: InterruptType) {
+    set_bit_u8(&.reg_if, type.bit(), true)
 }
 
 const DEBUG = false
@@ -1271,8 +1291,8 @@ def CPU::handle_instruction(&this) {
         //     seen_insts[opcode] = true
         //     .dump_state()
         // }
-        let MIN = 400000i64
-        let MAX = MIN + 400000
+        let MIN = 100000i64
+        let MAX = MIN + 100000
         if inst_count >= MIN and inst_count < MAX {
             .dump_state()
         } else if inst_count >= MAX {
@@ -1570,9 +1590,43 @@ def CPU::handle_instruction(&this) {
     // println("    A: %02X, BC: %04X, DE: %04X, HL: %04X, SP: %04X, PC: %04X", .regs.a, .regs.bc(), .regs.de(), .regs.hl(), .regs.sp, .regs.pc)
 }
 
+def CPU::check_interrupt_type(&this, type: InterruptType, addr: u16): bool {
+    let mask = 1u8 << type.bit()
+    if (.reg_if & .reg_ie & mask) == 0 {
+        return false
+    }
+
+    // println("performing interrupt: %s", type)
+
+    .reg_if = .reg_if & ~mask
+    .push_r16(Reg::PC)
+    .regs.pc = addr
+    .clock += 20
+    return true
+}
+
+def CPU::handle_interrupt(&this) {
+    // println("calling handle_interrupt")
+    .ime = false
+    .halted = false
+    if .check_interrupt_type(VBlank, 0x40) return
+    if .check_interrupt_type(LCDStat, 0x48) return
+    if .check_interrupt_type(Timer, 0x50) return
+    if .check_interrupt_type(Serial, 0x58) return
+    if .check_interrupt_type(Joypad, 0x60) return
+}
 
 def CPU::tick(&this): u64 {
     let prev_clock = .clock
-    .handle_instruction()
+    if .ime and (.reg_ie & .reg_if) != 0 {
+        .handle_interrupt()
+    } else if .halted {
+        .clock += 4
+        if .reg_if != 0 {
+            .halted = false
+        }
+    } else {
+        .handle_instruction()
+    }
     return  .clock - prev_clock
 }
