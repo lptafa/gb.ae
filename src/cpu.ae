@@ -201,7 +201,7 @@ def CPU::push_r16(&this, reg: Reg) {
     .write(.regs.sp, val as u8)
 }
 
-def CPU::eval_cond(&this, cond: Cond): bool => match cond {
+def CPU::check_condition(&this, cond: Cond): bool => match cond {
     None => true
     NZ => not .flag_z()
     Z => .flag_z()
@@ -226,7 +226,7 @@ def CPU::op_jmp(&this, cond: Cond) {
         if DEBUG println("JP %s, $%04x", cond, addr)
     }
 
-    let should_jump = .eval_cond(cond)
+    let should_jump = .check_condition(cond)
 
     if should_jump {
         .regs.pc = addr
@@ -245,7 +245,7 @@ def CPU::op_jmp_rel(&this, cond: Cond) {
         if DEBUG println("JR %s, $%02x", cond, offset as u8)
     }
 
-    let should_jump = .eval_cond(cond)
+    let should_jump = .check_condition(cond)
 
     .regs.pc += 2
     if should_jump {
@@ -636,13 +636,7 @@ def CPU::op_call(&this, cond: Cond) {
         if DEBUG println("CALL %s, $%04X", cond, addr)
     }
 
-    let should_call = match cond {
-        Cond::None => true,
-        Cond::NZ => not .flag_z(),
-        Cond::Z => .flag_z(),
-        Cond::NC => not .flag_c(),
-        Cond::C => .flag_c(),
-    }
+    let should_call = .check_condition(cond)
 
     .regs.pc += 3
     if should_call {
