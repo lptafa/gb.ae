@@ -37,14 +37,14 @@ def Emulator::run(&this) {
     let num_insts = 0u64
     while .running {
         if DEBUG print("[%06llu] | ", num_insts)
-        num_insts += 1u64
+        num_insts += 1
 
         // Run the CPU, get number of CPU cycles
         let cycles = .cpu.tick()
         .cycles += cycles
 
         // TODO: Run PPU for appropriate number of cycles
-        for let i = 0u64; i < cycles; i += 1u64 {
+        for let i = 0u64; i < cycles; i += 1 {
             .ppu.tick()
             .timer.tick()
         }

@@ -24,41 +24,40 @@ def Bus::new(emu: &Emulator): &Bus {
 }
 
 def Bus::io_read(&this, addr: u16): u8 => match addr {
-    0xff01u16 => .sb
-    0xff02u16 => .sc
+    0xff01 => .sb
+    0xff02 => .sc
 
     // FIXME: Is this correct for timer.div?
-    0xff04u16 => (.emu.timer.div >> 8u16) as u8
-    0xff05u16 => .emu.timer.tima
-    0xff06u16 => .emu.timer.tma
-    0xff07u16 => .emu.timer.tac
+    0xff04 => (.emu.timer.div >> 8u16) as u8
+    0xff05 => .emu.timer.tima
+    0xff06 => .emu.timer.tma
+    0xff07 => .emu.timer.tac
 
-    0xff0fu16 => .emu.cpu.reg_if
+    0xff0f => .emu.cpu.reg_if
 
-    0xff40u16 => .emu.ppu.lcdc
-    0xff41u16 => .emu.ppu.stat
-    0xff42u16 => .emu.ppu.scy
-    0xff43u16 => .emu.ppu.scx
-    0xff44u16 => .emu.ppu.ly
-    0xff45u16 => .emu.ppu.lyc
-    0xff47u16 => .emu.ppu.bgp
-    0xff48u16 => .emu.ppu.obp0
+    0xff40 => .emu.ppu.lcdc
+    0xff41 => .emu.ppu.stat
+    0xff42 => .emu.ppu.scy
+    0xff43 => .emu.ppu.scx
+    0xff44 => .emu.ppu.ly
+    0xff45 => .emu.ppu.lyc
+    0xff47 => .emu.ppu.bgp
+    0xff48 => .emu.ppu.obp0
 
-    0xffffu16 => .emu.cpu.reg_ie
+    0xffff => .emu.cpu.reg_ie
 
-    0xff10u16 | 0xff11u16 | 0xff12u16 | 0xff13u16 | 0xff14u16 |
-    0xff16u16 | 0xff17u16 | 0xff18u16 | 0xff19u16 | 0xff1au16 |
-    0xff1bu16 | 0xff1cu16 | 0xff1du16 | 0xff1eu16 | 0xff30u16 |
-    0xff20u16 | 0xff21u16 | 0xff22u16 | 0xff23u16 | 0xff24u16 |
-    0xff25u16 | 0xff26u16  => {
+    0xff10 | 0xff11 | 0xff12 | 0xff13 | 0xff14 |
+    0xff16 | 0xff17 | 0xff18 | 0xff19 | 0xff1a |
+    0xff1b | 0xff1c | 0xff1d | 0xff1e | 0xff30 |
+    0xff20 | 0xff21 | 0xff22 | 0xff23 | 0xff24 |
+    0xff25 | 0xff26  => {
         if BUS_DEBUG then println("Ignoring read from audio register 0x%04x", addr)
-        return 0xffu8
+        yield 0xffu8
     }
 
     else => {
         println("unhandled address in Bus::io_read: %04x", addr)
         exit(1)
-        yield 0u8
     }
 }
 
@@ -74,17 +73,17 @@ def Bus::read(&this, addr: u16): u8 {
         IORegisters => .io_read(addr)
         else => {
             if BUS_DEBUG then println("Unhandled region in Bus::read: %s (%04x)", region.str(), addr)
-            yield 0 as u8
+            yield 0u8
         }
     }
 }
 
 def Bus::io_write(&this, addr: u16, data: u8) {
     match addr {
-        0xff01u16 => .sb = data
+        0xff01 => .sb = data
 
         // NOTE: this is just storing serial out into a buffer.
-        0xff02u16 => {
+        0xff02 => {
             .sc = data
             if data == 0x81u8 {
                 let c = .sb as char
@@ -95,27 +94,27 @@ def Bus::io_write(&this, addr: u16, data: u8) {
             }
         }
 
-        0xff05u16 => .emu.timer.tima = data
-        0xff06u16 => .emu.timer.tma = data
-        0xff07u16 => .emu.timer.tac = data
-        0xff0fu16 => .emu.cpu.reg_if = data
+        0xff05 => .emu.timer.tima = data
+        0xff06 => .emu.timer.tma = data
+        0xff07 => .emu.timer.tac = data
+        0xff0f => .emu.cpu.reg_if = data
 
-        0xff40u16 => .emu.ppu.lcdc = data
-        0xff41u16 => .emu.ppu.stat = data
-        0xff42u16 => .emu.ppu.scy = data
-        0xff43u16 => .emu.ppu.scx = data
-        0xff44u16 => .emu.ppu.ly = data
-        0xff45u16 => .emu.ppu.lyc = data
-        0xff47u16 => .emu.ppu.bgp = data
-        0xff48u16 => .emu.ppu.obp0 = data
+        0xff40 => .emu.ppu.lcdc = data
+        0xff41 => .emu.ppu.stat = data
+        0xff42 => .emu.ppu.scy = data
+        0xff43 => .emu.ppu.scx = data
+        0xff44 => .emu.ppu.ly = data
+        0xff45 => .emu.ppu.lyc = data
+        0xff47 => .emu.ppu.bgp = data
+        0xff48 => .emu.ppu.obp0 = data
 
-        0xffffu16 => .emu.cpu.reg_ie = data
+        0xffff => .emu.cpu.reg_ie = data
 
-        0xff10u16 | 0xff11u16 | 0xff12u16 | 0xff13u16 | 0xff14u16 |
-        0xff16u16 | 0xff17u16 | 0xff18u16 | 0xff19u16 | 0xff1au16 |
-        0xff1bu16 | 0xff1cu16 | 0xff1du16 | 0xff1eu16 | 0xff30u16 |
-        0xff20u16 | 0xff21u16 | 0xff22u16 | 0xff23u16 | 0xff24u16 |
-        0xff25u16 | 0xff26u16 => {
+        0xff10 | 0xff11 | 0xff12 | 0xff13 | 0xff14 |
+        0xff16 | 0xff17 | 0xff18 | 0xff19 | 0xff1a |
+        0xff1b | 0xff1c | 0xff1d | 0xff1e | 0xff30 |
+        0xff20 | 0xff21 | 0xff22 | 0xff23 | 0xff24 |
+        0xff25 | 0xff26 => {
             if BUS_DEBUG then println("Ignoring write to audio register 0x%04x (%02X)", addr, data)
         }
 

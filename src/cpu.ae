@@ -21,14 +21,14 @@ enum Reg {
 }
 
 def Reg::from_bits(bits: u8): Reg => match bits {
-    0x00u8 => Reg::B
-    0x01u8 => Reg::C
-    0x02u8 => Reg::D
-    0x03u8 => Reg::E
-    0x04u8 => Reg::H
-    0x05u8 => Reg::L
-    0x06u8 => Reg::HL
-    0x07u8 => Reg::A
+    0x00 => B
+    0x01 => C
+    0x02 => D
+    0x03 => E
+    0x04 => H
+    0x05 => L
+    0x06 => HL
+    0x07 => A
     else => panic(`Invalid value in Reg::from_bits: 0x{bits:02x}`)
 }
 
@@ -53,28 +53,28 @@ struct CPURegisters {
     sp: u16
 }
 
-def CPURegisters::af(&this): u16 => (.a as u16 << 8u16) | .f as u16
-def CPURegisters::bc(&this): u16 => (.b as u16 << 8u16) | .c as u16
-def CPURegisters::de(&this): u16 => (.d as u16 << 8u16) | .e as u16
-def CPURegisters::hl(&this): u16 => (.h as u16 << 8u16) | .l as u16
+def CPURegisters::af(&this): u16 => (.a as u16 << 8) | .f as u16
+def CPURegisters::bc(&this): u16 => (.b as u16 << 8) | .c as u16
+def CPURegisters::de(&this): u16 => (.d as u16 << 8) | .e as u16
+def CPURegisters::hl(&this): u16 => (.h as u16 << 8) | .l as u16
 
 def CPURegisters::set_af(&this, val: u16) {
-    .a = (val >> 8u16) as u8
+    .a = (val >> 8) as u8
     .f = val as u8
 }
 
 def CPURegisters::set_bc(&this, val: u16) {
-    .b = (val >> 8u16) as u8
+    .b = (val >> 8) as u8
     .c = val as u8
 }
 
 def CPURegisters::set_de(&this, val: u16) {
-    .d = (val >> 8u16) as u8
+    .d = (val >> 8) as u8
     .e = val as u8
 }
 
 def CPURegisters::set_hl(&this, val: u16) {
-    .h = (val >> 8u16) as u8
+    .h = (val >> 8) as u8
     .l = val as u8
 }
 
@@ -143,37 +143,37 @@ def CPU::new(bus: &Bus): &CPU {
     *cpu = CPU(
         bus: bus,
         regs: CPURegisters(
-            a: 0x01u8,
-            b: 0x00u8,
-            c: 0x13u8,
-            d: 0x00u8,
-            e: 0xD8u8,
-            h: 0x01u8,
-            l: 0x4Du8,
-            f: 0xB0u8,
-            pc: 0x0100u16,
-            sp: 0xFFFEu16,
+            a: 0x01,
+            b: 0x00,
+            c: 0x13,
+            d: 0x00,
+            e: 0xD8,
+            h: 0x01,
+            l: 0x4D,
+            f: 0xB0,
+            pc: 0x0100,
+            sp: 0xFFFE,
         ),
-        clock: 0u64,
+        clock: 0,
         ime: false,
         halted: false,
-        reg_ie: 0u8,
-        reg_if: 0u8,
+        reg_ie: 0,
+        reg_if: 0,
     )
     return cpu
 }
 
-def CPU::flag_z(&this): bool => get_bit_u8(.regs.f, 7u8)
-def CPU::set_flag_z(&this, val: bool) { set_bit_u8(&.regs.f, 7u8, val) }
+def CPU::flag_z(&this): bool => get_bit_u8(.regs.f, 7)
+def CPU::set_flag_z(&this, val: bool) { set_bit_u8(&.regs.f, 7, val) }
 
-def CPU::flag_n(&this): bool => get_bit_u8(.regs.f, 6u8)
-def CPU::set_flag_n(&this, val: bool) { set_bit_u8(&.regs.f, 6u8, val) }
+def CPU::flag_n(&this): bool => get_bit_u8(.regs.f, 6)
+def CPU::set_flag_n(&this, val: bool) { set_bit_u8(&.regs.f, 6, val) }
 
-def CPU::flag_h(&this): bool => get_bit_u8(.regs.f, 5u8)
-def CPU::set_flag_h(&this, val: bool) { set_bit_u8(&.regs.f, 5u8, val) }
+def CPU::flag_h(&this): bool => get_bit_u8(.regs.f, 5)
+def CPU::set_flag_h(&this, val: bool) { set_bit_u8(&.regs.f, 5, val) }
 
-def CPU::flag_c(&this): bool => get_bit_u8(.regs.f, 4u8)
-def CPU::set_flag_c(&this, val: bool) { set_bit_u8(&.regs.f, 4u8, val) }
+def CPU::flag_c(&this): bool => get_bit_u8(.regs.f, 4)
+def CPU::set_flag_c(&this, val: bool) { set_bit_u8(&.regs.f, 4, val) }
 
 def CPU::read(&this, addr: u16): u8 => .bus.read(addr)
 
@@ -183,29 +183,30 @@ def CPU::write(&this, addr: u16, data: u8) {
 
 def CPU::read_u16(&this, addr: u16): u16 {
     let lo = .read(addr) as u16
-    let hi = .read(addr + 1u16) as u16
-    return (hi << 8u16) | lo
-}
-
-def CPU::set_flags(&this, zero: i32, sub: i32, half_carry: i32, carry: i32) {
-    if zero != -1       then .set_flag_z(zero as bool)
-    if sub != -1        then .set_flag_n(sub as bool)
-    if half_carry != -1 then .set_flag_h(half_carry as bool)
-    if carry != -1      then .set_flag_c(carry as bool)
+    let hi = .read(addr + 1) as u16
+    return (hi << 8) | lo
 }
 
 def CPU::push_reg8(&this, reg: Reg) {
     let val = .regs.get8(reg)
-    .regs.sp -= 1u16
+    .regs.sp -= 1
     .write(.regs.sp, val)
 }
 
 def CPU::push_r16(&this, reg: Reg) {
     let val = .regs.get16(reg)
-    .regs.sp -= 1u16
-    .write(.regs.sp, (val >> 8u16) as u8)
-    .regs.sp -= 1u16
+    .regs.sp -= 1
+    .write(.regs.sp, (val >> 8) as u8)
+    .regs.sp -= 1
     .write(.regs.sp, val as u8)
+}
+
+def CPU::eval_cond(&this, cond: Cond): bool => match cond {
+    None => true
+    NZ => not .flag_z()
+    Z => .flag_z()
+    NC => not .flag_c()
+    C => .flag_c()
 }
 
 const DEBUG = false
@@ -213,57 +214,45 @@ const DEBUG = false
 def CPU::op_nop(&this) {
     if DEBUG println("NOP")
 
-    .clock += 4u64
-    .regs.pc += 1u16
+    .clock += 4
+    .regs.pc += 1
 }
 
 def CPU::op_jmp(&this, cond: Cond) {
-    let addr = .read_u16(.regs.pc + 1u16)
+    let addr = .read_u16(.regs.pc + 1)
     if cond == Cond::None {
         if DEBUG println("JP $%04x", addr)
     } else {
         if DEBUG println("JP %s, $%04x", cond, addr)
     }
 
-    let should_jump = match cond {
-        Cond::None => true
-        Cond::NZ => not .flag_z()
-        Cond::Z => .flag_z()
-        Cond::NC => not .flag_c()
-        Cond::C => .flag_c()
-    }
+    let should_jump = .eval_cond(cond)
 
     if should_jump {
         .regs.pc = addr
-        .clock += 16u64
+        .clock += 16
     } else {
-        .regs.pc += 3u16
-        .clock += 12u64
+        .regs.pc += 3
+        .clock += 12
     }
 }
 
 def CPU::op_jmp_rel(&this, cond: Cond) {
-    let offset = .read(.regs.pc + 1u16) as i8
+    let offset = .read(.regs.pc + 1) as i8
     if cond == Cond::None {
         if DEBUG println("JR $%02x", offset as u8)
     } else {
         if DEBUG println("JR %s, $%02x", cond, offset as u8)
     }
 
-    let should_jump = match cond {
-        Cond::None => true
-        Cond::NZ => not .flag_z()
-        Cond::Z => .flag_z()
-        Cond::NC => not .flag_c()
-        Cond::C => .flag_c()
-    }
+    let should_jump = .eval_cond(cond)
 
-    .regs.pc += 2u16
+    .regs.pc += 2
     if should_jump {
-        .clock += 12u64
+        .clock += 12
         .regs.pc = (.regs.pc as i16 + offset as i16) as u16
     } else {
-        .clock += 8u64
+        .clock += 8
     }
 }
 
@@ -271,7 +260,7 @@ def CPU::op_jmp_hl(&this) {
     if DEBUG println("JP (HL)")
 
     .regs.pc = .regs.hl()
-    .clock += 4u64
+    .clock += 4
 }
 
 
@@ -285,8 +274,8 @@ def CPU::op_di(&this) {
 
     .ime = false
 
-    .clock += 4u64
-    .regs.pc += 1u16
+    .clock += 4
+    .regs.pc += 1
 }
 
 def CPU::op_ld_r_r(&this, dst: Reg, src: Reg) {
@@ -296,8 +285,8 @@ def CPU::op_ld_r_r(&this, dst: Reg, src: Reg) {
     let val = .regs.get8(src)
     .regs.set8(dst, val)
 
-    .clock += 4u64
-    .regs.pc += 1u16
+    .clock += 4
+    .regs.pc += 1
 }
 
 def CPU::op_ld_r_hl(&this, dst: Reg) {
@@ -307,8 +296,8 @@ def CPU::op_ld_r_hl(&this, dst: Reg) {
     let val = .read(.regs.hl())
     .regs.set8(dst, val)
 
-    .clock += 8u64
-    .regs.pc += 1u16
+    .clock += 8
+    .regs.pc += 1
 }
 
 def CPU::op_ld_hl_r(&this, src: Reg) {
@@ -318,19 +307,19 @@ def CPU::op_ld_hl_r(&this, src: Reg) {
 
     .write(.regs.hl(), val)
 
-    .clock += 8u64
-    .regs.pc += 1u16
+    .clock += 8
+    .regs.pc += 1
 }
 
 def CPU::op_ld_imm_a(&this) {
     // Load A into immediate
-    let addr = .read_u16(.regs.pc + 1u16)
+    let addr = .read_u16(.regs.pc + 1)
     if DEBUG println("LD ($%04X), A", addr)
 
     .write(addr, .regs.a)
 
-    .clock += 16u64
-    .regs.pc += 3u16
+    .clock += 16
+    .regs.pc += 3
 }
 
 def CPU::op_ld_r16_a(&this, dst: Reg) {
@@ -340,8 +329,8 @@ def CPU::op_ld_r16_a(&this, dst: Reg) {
     let addr = .regs.get16(dst)
     .write(addr, val)
 
-    .clock += 8u64
-    .regs.pc += 1u16
+    .clock += 8
+    .regs.pc += 1
 }
 
 def CPU::op_ld_sp_hl(&this) {
@@ -349,74 +338,74 @@ def CPU::op_ld_sp_hl(&this) {
 
     .regs.sp = .regs.hl()
 
-    .clock += 8u64
-    .regs.pc += 1u16
+    .clock += 8
+    .regs.pc += 1
 }
 
 def CPU::op_ld_r16_imm(&this, dst: Reg) {
-    let val = .read_u16(.regs.pc + 1u16)
+    let val = .read_u16(.regs.pc + 1)
     if DEBUG println("LD %s, $%04X", dst, val)
 
     .regs.set16(dst, val)
 
-    .clock += 12u64
-    .regs.pc += 3u16
+    .clock += 12
+    .regs.pc += 3
 }
 
 def CPU::op_ld_r_imm(&this, dest: Reg) {
-    let val = .read(.regs.pc + 1u16)
+    let val = .read(.regs.pc + 1)
     if DEBUG println("LD %s, $%02X", dest, val)
 
     .regs.set8(dest, val)
 
-    .clock += 8u64
-    .regs.pc += 2u16
+    .clock += 8
+    .regs.pc += 2
 }
 
 def CPU::op_ld_ff00n_a(&this) {
-    let n = .read(.regs.pc + 1u16)
+    let n = .read(.regs.pc + 1)
     if DEBUG println("LD (FF00+$%02X), A", n)
 
-    let addr = 0xFF00u16 | (n as u16)
+    let addr = (n as u16) | 0xFF00
     .write(addr, .regs.a)
 
-    .clock += 12u64
-    .regs.pc += 2u16
+    .clock += 12
+    .regs.pc += 2
 }
 
 def CPU::op_ld_a_ff00n(&this) {
-    let n = .read(.regs.pc + 1u16)
+    let n = .read(.regs.pc + 1)
     if DEBUG println("LD A, (FF00+$%02X)", n)
 
-    let addr = 0xFF00u16 | (n as u16)
+    let addr = (n as u16) | 0xFF00
     .regs.a = .read(addr)
 
-    .clock += 12u64
-    .regs.pc += 2u16
+    .clock += 12
+    .regs.pc += 2
 }
 
 def CPU::op_ld_ff00c_a(&this) {
-    let addr = 0xFF00u16 | (.regs.c as u16)
+    let addr = (.regs.c as u16) | 0xFF00
     if DEBUG println("LD (FF00+C [%04X]), A", addr)
 
     .write(addr, .regs.a)
 
-    .clock += 8u64
-    .regs.pc += 1u16
+    .clock += 8
+    .regs.pc += 1
 }
 
 def CPU::op_ld_a_ff00c(&this) {
-    let addr = 0xFF00u16 | (.regs.c as u16)
+    let addr = (.regs.c as u16) | 0xFF00
     if DEBUG println("LD A, (FF00+C [%04x])", addr)
 
     .regs.a = .read(addr)
 
-    .clock += 8u64
-    .regs.pc += 1u16
+    .clock += 8
+    .regs.pc += 1
 }
 
 def CPU::op_ldi_hl_a(&this, inc: i16) {
-    if inc > 0i16 {
+    if inc > 0 {
         if DEBUG println("LDI (HL), A")
     } else {
         if DEBUG println("LDD (HL), A")
@@ -427,12 +416,12 @@ def CPU::op_ldi_hl_a(&this, inc: i16) {
     let new_hl = ((.regs.hl() as i16) + inc) as u16
     .regs.set_hl(new_hl)
 
-    .clock += 8u64
-    .regs.pc += 1u16
+    .clock += 8
+    .regs.pc += 1
 }
 
 def CPU::op_ldi_a_hl(&this, inc: i16) {
-    if inc > 0i16 {
+    if inc > 0 {
         if DEBUG println("LDI A, (HL)")
     } else {
         if DEBUG println("LDD A, (HL)")
@@ -443,18 +432,18 @@ def CPU::op_ldi_a_hl(&this, inc: i16) {
     let new_hl = ((.regs.hl() as i16) + inc) as u16
     .regs.set_hl(new_hl)
 
-    .clock += 8u64
-    .regs.pc += 1u16
+    .clock += 8
+    .regs.pc += 1
 }
 
 def CPU::op_ld_a_imm16(&this) {
-    let addr = .read_u16(.regs.pc + 1u16)
+    let addr = .read_u16(.regs.pc + 1)
     if DEBUG println("LD A, ($%04X)", addr)
 
     .regs.a = .read(addr)
 
-    .clock += 16u64
-    .regs.pc += 3u16
+    .clock += 16
+    .regs.pc += 3
 }
 
 def CPU::op_ld_r_r16(&this, dst: Reg, src: Reg) {
@@ -463,12 +452,12 @@ def CPU::op_ld_r_r16(&this, dst: Reg, src: Reg) {
 
     .regs.set8(dst, .read(addr))
 
-    .clock += 8u64
-    .regs.pc += 1u16
+    .clock += 8
+    .regs.pc += 1
 }
 
 def CPU::op_ld_hl_spn(&this) {
-    let n = .read(.regs.pc + 1u16) as i8 as i32
+    let n = .read(.regs.pc + 1) as i8 as i32
     if DEBUG println("LD HL, SP + $%02X", n)
 
     let sp = .regs.sp as i16 as i32
@@ -477,35 +466,35 @@ def CPU::op_ld_hl_spn(&this) {
 
     .set_flag_z(false)
     .set_flag_n(false)
-    .set_flag_h((sp & 0xFi32) + (n & 0xFi32) > 0xFi32)
-    .set_flag_c((sp & 0xFFi32) + (n & 0xFFi32) > 0xFFi32)
+    .set_flag_h((sp & 0xF) + (n & 0xF) > 0xF)
+    .set_flag_c((sp & 0xFF) + (n & 0xFF) > 0xFF)
 
 
-    .clock += 12u64
-    .regs.pc += 2u16
+    .clock += 12
+    .regs.pc += 2
 }
 
 def CPU::op_ld_imm16_sp(&this) {
-    let addr = .read_u16(.regs.pc + 1u16)
+    let addr = .read_u16(.regs.pc + 1)
     if DEBUG println("LD ($%04X), SP", addr)
 
     let val = .regs.sp
-    .write(addr, (val & 0xFFu16) as u8)
-    .write(addr + 1u16, (val >> 8u16) as u8)
+    .write(addr, (val & 0xFF) as u8)
+    .write(addr + 1, (val >> 8) as u8)
 
-    .clock += 20u64
-    .regs.pc += 3u16
+    .clock += 20
+    .regs.pc += 3
 }
 
 def CPU::op_ld_mem_hl_imm(&this) {
     let addr = .regs.hl()
-    let val = .read(.regs.pc + 1u16)
+    let val = .read(.regs.pc + 1)
     if DEBUG println("LD (HL [$%04X]), $%02X", addr, val)
 
     .write(addr, val)
 
-    .clock += 12u64
-    .regs.pc += 2u16
+    .clock += 12
+    .regs.pc += 2
 }
 
 def CPU::op_push16(&this, src: Reg) {
@@ -514,8 +503,8 @@ def CPU::op_push16(&this, src: Reg) {
 
     .push_r16(src)
 
-    .clock += 16u64
-    .regs.pc += 1u16
+    .clock += 16
+    .regs.pc += 1
 }
 
 
@@ -529,14 +518,14 @@ def CPU::op_pop16(&this, dst: Reg) {
 
     if dst == Reg::AF {
         // The upper byte of AF is always 0
-        val = (val & 0xFFF0u16)
+        val = val & 0xFFF0
     }
 
     .regs.set16(dst, val)
-    .regs.sp += 2u16
+    .regs.sp += 2
 
-    .clock += 12u64
-    .regs.pc += 1u16
+    .clock += 12
+    .regs.pc += 1
 }
 
 def CPU::op_alu_r(&this, handler: fn(&CPU, u8), src: Reg) {
@@ -544,29 +533,29 @@ def CPU::op_alu_r(&this, handler: fn(&CPU, u8), src: Reg) {
         let val = .read(.regs.hl())
         handler(this, val)
         if DEBUG println(" (HL [%02X])", val)
-        .clock += 8u64
+        .clock += 8
     } else {
         let val = .regs.get8(src)
         handler(this, val)
         if DEBUG println(" %s [%02X]", src, val)
-        .clock += 4u64
+        .clock += 4
     }
-    .regs.pc += 1u16
+    .regs.pc += 1
 }
 
 def CPU::op_alu_imm(&this, handler: fn(&CPU, u8)) {
-    let val = .read(.regs.pc + 1u16)
+    let val = .read(.regs.pc + 1)
 
     handler(this, val)
     if DEBUG println(" $%02X", val)
 
-    .clock += 8u64
-    .regs.pc += 2u16
+    .clock += 8
+    .regs.pc += 2
 }
 
 def CPU::op_inc_r16(&this, reg: Reg, offset: i16) {
     // Increment 16-bit register
-    if offset > 0i16 {
+    if offset > 0 {
         if DEBUG println("INC %s", reg)
     } else {
         if DEBUG println("DEC %s", reg)
@@ -576,13 +565,13 @@ def CPU::op_inc_r16(&this, reg: Reg, offset: i16) {
     let new_val = ((val as i16) + offset) as u16
     .regs.set16(reg, new_val)
 
-    .clock += 8u64
-    .regs.pc += 1u16
+    .clock += 8
+    .regs.pc += 1
 }
 
 def CPU::op_inc_r(&this, reg: Reg, offset: i8) {
     // Increment 8-bit register
-    if offset > 0i8 {
+    if offset > 0 {
         if DEBUG println("INC %s", reg)
     } else {
         if DEBUG println("DEC %s", reg)
@@ -592,22 +581,22 @@ def CPU::op_inc_r(&this, reg: Reg, offset: i8) {
     let val = (prev + offset) as u8
     .regs.set8(reg, val)
 
-    .set_flag_z(val == 0u8)
-    .set_flag_n(offset < 0i8)
+    .set_flag_z(val == 0)
+    .set_flag_n(offset < 0)
 
-    if offset > 0i8 {
-        .set_flag_h((val & 0x0Fu8) == 0x00u8)
+    if offset > 0 {
+        .set_flag_h((val & 0x0F) == 0x00)
     } else {
-        .set_flag_h((val & 0x0Fu8) == 0x0fu8)
+        .set_flag_h((val & 0x0F) == 0x0f)
     }
 
-    .clock += 4u64
-    .regs.pc += 1u16
+    .clock += 4
+    .regs.pc += 1
 }
 
 def CPU::op_inc_mem_hl(&this, offset: i8) {
     // Increment memory at (HL)
-    if offset > 0i8 {
+    if offset > 8 {
         if DEBUG println("INC (HL)")
     } else {
         if DEBUG println("DEC (HL)")
@@ -618,16 +607,16 @@ def CPU::op_inc_mem_hl(&this, offset: i8) {
     let val = (prev + off) as u8
     .write(.regs.hl(), val)
 
-    .set_flag_z(val == 0u8)
-    .set_flag_n(offset < 0i8)
-    if offset > 0i8 {
-        .set_flag_h((val & 0x0Fu8) == 0x00u8)
+    .set_flag_z(val == 0)
+    .set_flag_n(offset < 0)
+    if offset > 0 {
+        .set_flag_h((val & 0x0F) == 0x00)
     } else {
-        .set_flag_h((val & 0x0Fu8) == 0x0fu8)
+        .set_flag_h((val & 0x0F) == 0x0f)
     }
 
-    .clock += 12u64
-    .regs.pc += 1u16
+    .clock += 12
+    .regs.pc += 1
 }
 
 def CPU::op_halt(&this) {
@@ -635,12 +624,12 @@ def CPU::op_halt(&this) {
 
     .halted = true
 
-    .clock += 4u64
-    .regs.pc += 1u16
+    .clock += 4
+    .regs.pc += 1
 }
 
 def CPU::op_call(&this, cond: Cond) {
-    let addr = .read_u16(.regs.pc + 1u16)
+    let addr = .read_u16(.regs.pc + 1)
     if cond == Cond::None {
         if DEBUG println("CALL $%04X", addr)
     } else {
@@ -655,13 +644,13 @@ def CPU::op_call(&this, cond: Cond) {
         Cond::C => .flag_c(),
     }
 
-    .regs.pc += 3u16
+    .regs.pc += 3
     if should_call {
         .push_r16(Reg::PC)
-        .clock += 24u64
+        .clock += 24
         .regs.pc = addr
     } else {
-        .clock += 12u64
+        .clock += 12
     }
 }
 
@@ -682,17 +671,17 @@ def CPU::op_ret(&this, cond: Cond) {
 
     if should_jump {
         let ret_addr = .read_u16(.regs.sp)
-        .regs.sp += 2u16
+        .regs.sp += 2
 
         if cond == Cond::None {
-            .clock += 16u64
+            .clock += 16
         } else {
-            .clock += 20u64
+            .clock += 20
         }
         .regs.pc = ret_addr
     } else {
-        .clock += 8u64
-        .regs.pc += 1u16
+        .clock += 8
+        .regs.pc += 1
     }
 }
 
@@ -704,81 +693,81 @@ def CPU::op_reti(&this) {
 
 def CPU::op_rst(&this, addr: u16) {
     if DEBUG println("RST $%02X", addr)
-    let val = .regs.pc + 1u16
+    let val = .regs.pc + 1
 
-    .regs.sp -= 1u16
-    .write(.regs.sp, (val >> 8u16) as u8)
-    .regs.sp -= 1u16
-    .write(.regs.sp, (val & 0xFFu16) as u8)
+    .regs.sp -= 1
+    .write(.regs.sp, (val >> 8) as u8)
+    .regs.sp -= 1
+    .write(.regs.sp, (val & 0xFF) as u8)
 
     .regs.pc = addr
-    .clock += 16u64
+    .clock += 16
 }
 
 def CPU::op_rrca(&this) {
     if DEBUG println("RRCA")
     let val = .regs.a
-    let new_c = val & 1u8
-    let res = (val >> 1u8) | (new_c << 7u8)
+    let new_c = val & 1
+    let res = (val >> 1) | (new_c << 7)
 
     .set_flag_z(false)
     .set_flag_n(false)
     .set_flag_h(false)
-    .set_flag_c(new_c == 1u8)
+    .set_flag_c(new_c == 1)
 
     .regs.a = res
-    .clock += 4u64
-    .regs.pc += 1u16
+    .clock += 4
+    .regs.pc += 1
 }
 
 def CPU::op_rra(&this) {
     if DEBUG println("RRA")
     let val = .regs.a
     let carry = .flag_c() as u8
-    let new_c = val & 1u8
-    let res = (val >> 1u8) | (carry << 7u8)
+    let new_c = val & 1
+    let res = (val >> 1) | (carry << 7)
 
     .set_flag_z(false)
     .set_flag_n(false)
     .set_flag_h(false)
-    .set_flag_c(new_c == 1u8)
+    .set_flag_c(new_c == 1)
 
     .regs.a = res
-    .clock += 4u64
-    .regs.pc += 1u16
+    .clock += 4
+    .regs.pc += 1
 }
 
 def CPU::op_rlca(&this) {
     if DEBUG println("RLCA")
     let val = .regs.a
-    let new_c = (val >> 7u8) & 1u8
-    let res = (val << 1u8) | new_c
+    let new_c = (val >> 7) & 1
+    let res = (val << 1) | new_c
 
     .set_flag_z(false)
     .set_flag_n(false)
     .set_flag_h(false)
-    .set_flag_c(new_c == 1u8)
+    .set_flag_c(new_c == 1)
 
     .regs.a = res
-    .clock += 4u64
-    .regs.pc += 1u16
+    .clock += 4
+    .regs.pc += 1
 }
 
 def CPU::op_rla(&this) {
     if DEBUG println("RLA")
     let val = .regs.a
     let carry = .flag_c() as u8
-    let new_c = (val >> 7u8) & 1u8
-    let res = (val << 1u8) | carry
+    let new_c = (val >> 7) & 1
+    let res = (val << 1) | carry
 
     .set_flag_z(false)
     .set_flag_n(false)
     .set_flag_h(false)
-    .set_flag_c(new_c == 1u8)
+    .set_flag_c(new_c == 1)
 
     .regs.a = res
-    .clock += 4u64
-    .regs.pc += 1u16
+    .clock += 4
+    .regs.pc += 1
 }
 
 def CPU::op_add_hl_r16(&this, reg: Reg) {
@@ -794,12 +783,12 @@ def CPU::op_add_hl_r16(&this, reg: Reg) {
 
     .regs.set_hl(result as u16)
 
-    .clock += 8u64
-    .regs.pc += 1u16
+    .clock += 8
+    .regs.pc += 1
 }
 
 def CPU::op_add_sp_imm(&this) {
-    let val = .read(.regs.pc + 1u16) as i8 as i32
+    let val = .read(.regs.pc + 1) as i8 as i32
     if DEBUG println("ADD SP, $%02X", val)
     let sp = .regs.sp as i32
     let result = sp + val
@@ -811,8 +800,8 @@ def CPU::op_add_sp_imm(&this) {
 
     .regs.sp = result as u16
 
-    .clock += 16u64
-    .regs.pc += 2u16
+    .clock += 16
+    .regs.pc += 2
 }
 
 def CPU::op_cpl(&this) {
@@ -820,8 +809,8 @@ def CPU::op_cpl(&this) {
     .regs.a = ~.regs.a
     .set_flag_n(true)
     .set_flag_h(true)
-    .clock += 4u64
-    .regs.pc += 1u16
+    .clock += 4
+    .regs.pc += 1
 }
 
 def CPU::op_scf(&this) {
@@ -829,8 +818,8 @@ def CPU::op_scf(&this) {
     .set_flag_n(false)
     .set_flag_h(false)
     .set_flag_c(true)
-    .clock += 4u64
-    .regs.pc += 1u16
+    .clock += 4
+    .regs.pc += 1
 }
 
 def CPU::op_ccf(&this) {
@@ -838,21 +827,21 @@ def CPU::op_ccf(&this) {
     .set_flag_n(false)
     .set_flag_h(false)
     .set_flag_c(not .flag_c())
-    .clock += 4u64
-    .regs.pc += 1u16
+    .clock += 4
+    .regs.pc += 1
 }
 
 def CPU::op_daa(&this) {
     if DEBUG println("DAA")
-    let u = 0u8
+    let u: u8 = 0
     let carry = false
 
-    if .flag_h() or (not .flag_n() and (.regs.a & 0xFu8) > 9u8) {
-        u = 0x6u8
+    if .flag_h() or (not .flag_n() and (.regs.a & 0xF) > 9) {
+        u = 0x6
     }
 
-    if .flag_c() or (not .flag_n() and .regs.a > 0x99u8) {
-        u = u | 0x60u8
+    if .flag_c() or (not .flag_n() and .regs.a > 0x99) {
+        u = u | 0x60
         carry = true
     }
 
@@ -862,20 +851,20 @@ def CPU::op_daa(&this) {
         .regs.a += u
     }
 
-    .set_flag_z(.regs.a == 0u8)
+    .set_flag_z(.regs.a == 0)
     .set_flag_h(false)
     .set_flag_c(carry)
 
-    .clock += 4u64
-    .regs.pc += 1u16
+    .clock += 4
+    .regs.pc += 1
 }
 
 def CPU::op_ei(&this) {
     if DEBUG println("EI")
     // FIXME: delayed interrupt enable
     .ime = true
-    .clock += 4u64
-    .regs.pc += 1u16
+    .clock += 4
+    .regs.pc += 1
 }
 
 // This is a hack to get around the fact that we can't pass
@@ -888,17 +877,17 @@ def ALU_CP(cpu: &CPU, val: u8) {
     let b = (val as u16) as i16
     let result = a - b
 
-    cpu.set_flag_z(result == 0i16)
+    cpu.set_flag_z(result == 0)
     cpu.set_flag_n(true)
-    cpu.set_flag_h((a & 0xFi16) - (b & 0xFi16) < 0i16)
-    cpu.set_flag_c(result < 0i16)
+    cpu.set_flag_h((a & 0xF) - (b & 0xF) < 0)
+    cpu.set_flag_c(result < 0)
 }
 
 def ALU_AND(cpu: &CPU, val: u8) {
     if DEBUG print("AND")
     let result = cpu.regs.a & val
 
-    cpu.set_flag_z(result == 0u8)
+    cpu.set_flag_z(result == 0)
     cpu.set_flag_n(false)
     cpu.set_flag_h(true)
     cpu.set_flag_c(false)
@@ -910,7 +899,7 @@ def ALU_OR(cpu: &CPU, val: u8) {
     if DEBUG print("OR")
     let result = cpu.regs.a | val
 
-    cpu.set_flag_z(result == 0u8)
+    cpu.set_flag_z(result == 0)
     cpu.set_flag_n(false)
     cpu.set_flag_h(false)
     cpu.set_flag_c(false)
@@ -922,7 +911,7 @@ def ALU_XOR(cpu: &CPU, val: u8) {
     if DEBUG print("XOR")
     let result = cpu.regs.a ^ val
 
-    cpu.set_flag_z(result == 0u8)
+    cpu.set_flag_z(result == 0)
     cpu.set_flag_n(false)
     cpu.set_flag_h(false)
     cpu.set_flag_c(false)
@@ -937,10 +926,10 @@ def ALU_ADD(cpu: &CPU, val: u8) {
     let b = val as u16
     let result = a + b
 
-    cpu.set_flag_z(result as u8 == 0u8)
+    cpu.set_flag_z(result as u8 == 0)
     cpu.set_flag_n(false)
-    cpu.set_flag_h((a & 0xFu16) + (b & 0xFu16) > 0xFu16)
-    cpu.set_flag_c(result > 0xFFu16)
+    cpu.set_flag_h((a & 0xF) + (b & 0xF) > 0xF)
+    cpu.set_flag_c(result > 0xFF)
 
     cpu.regs.a = result as u8
 }
@@ -952,10 +941,10 @@ def ALU_ADDC(cpu: &CPU, val: u8) {
     let c = cpu.flag_c() as u16
     let result = a + b + c
 
-    cpu.set_flag_z(result as u8 == 0u8)
+    cpu.set_flag_z(result as u8 == 0)
     cpu.set_flag_n(false)
-    cpu.set_flag_h((a & 0xFu16) + (b & 0xFu16) + c > 0xFu16)
-    cpu.set_flag_c(result > 0xFFu16)
+    cpu.set_flag_h((a & 0xF) + (b & 0xF) + c > 0xF)
+    cpu.set_flag_c(result > 0xFF)
 
     cpu.regs.a = result as u8
 }
@@ -967,10 +956,10 @@ def ALU_SUB(cpu: &CPU, val: u8) {
     let b = val as i16
     let result = a - b
 
-    cpu.set_flag_z(result as u8 == 0u8)
+    cpu.set_flag_z(result as u8 == 0)
     cpu.set_flag_n(true)
-    cpu.set_flag_h((a & 0xFi16) - (b & 0xFi16) < 0i16)
-    cpu.set_flag_c(result < 0i16)
+    cpu.set_flag_h((a & 0xF) - (b & 0xF) < 0)
+    cpu.set_flag_c(result < 0)
 
     cpu.regs.a = result as u8
 }
@@ -982,10 +971,10 @@ def ALU_SUBC(cpu: &CPU, val: u8) {
     let c = cpu.flag_c() as i16
     let result = a - b - c
 
-    cpu.set_flag_z(result as u8 == 0u8)
+    cpu.set_flag_z(result as u8 == 0)
     cpu.set_flag_n(true)
-    cpu.set_flag_h((a & 0xFi16) - (b & 0xFi16) - c < 0i16)
-    cpu.set_flag_c(result < 0i16)
+    cpu.set_flag_h((a & 0xF) - (b & 0xF) - c < 0)
+    cpu.set_flag_c(result < 0)
 
     cpu.regs.a = result as u8
 }
@@ -994,10 +983,10 @@ def CPU::op_bit(&this, bit: u8, reg: Reg) {
     if DEBUG println("BIT %d, %s", bit, reg)
 
     let val = if reg == Reg::HL {
-        .clock += 12u64
+        .clock += 12
         yield .read(.regs.hl())
     } else {
-        .clock += 8u64
+        .clock += 8
         yield .regs.get8(reg)
     }
 
@@ -1005,7 +994,7 @@ def CPU::op_bit(&this, bit: u8, reg: Reg) {
     .set_flag_n(false)
     .set_flag_h(true)
 
-    .regs.pc += 2u16
+    .regs.pc += 2
 }
 
 
@@ -1020,15 +1009,15 @@ def CPU::op_set_bit(&this, bit: u8, reg: Reg, val: bool) {
         let mem = .read(.regs.hl())
         set_bit_u8(&mem, bit, val)
         .write(.regs.hl(), mem)
-        .clock += 16u64
-        .regs.pc += 2u16
+        .clock += 16
+        .regs.pc += 2
 
     } else {
         let mem = .regs.get8(reg)
         set_bit_u8(&mem, bit, val)
         .regs.set8(reg, mem)
-        .clock += 8u64
-        .regs.pc += 2u16
+        .clock += 8
+        .regs.pc += 2
     }
 }
 
@@ -1038,22 +1027,22 @@ def CPU::op_rrc(&this, reg: Reg) {
         HL => .read(.regs.hl())
         else => .regs.get8(reg)
     }
-    let new_c = val & 1u8
-    let res = (val >> 1u8) | (new_c << 7u8)
+    let new_c = val & 1
+    let res = (val >> 1) | (new_c << 7)
 
-    .set_flag_z(res == 0u8)
+    .set_flag_z(res == 0)
     .set_flag_n(false)
     .set_flag_h(false)
-    .set_flag_c(new_c == 1u8)
+    .set_flag_c(new_c == 1)
 
     if reg == Reg::HL {
         .write(.regs.hl(), res)
-        .clock += 16u64
+        .clock += 16
     } else {
         .regs.set8(reg, res)
-        .clock += 8u64
+        .clock += 8
     }
-    .regs.pc += 2u16
+    .regs.pc += 2
 }
 
 def CPU::op_rr(&this, reg: Reg) {
@@ -1063,96 +1052,96 @@ def CPU::op_rr(&this, reg: Reg) {
         else => .regs.get8(reg)
     }
     let carry = .flag_c() as u8
-    let new_c = val & 1u8
-    let res = (val >> 1u8) | (carry << 7u8)
+    let new_c = val & 1
+    let res = (val >> 1) | (carry << 7)
 
-    .set_flag_z(res == 0u8)
+    .set_flag_z(res == 0)
     .set_flag_n(false)
     .set_flag_h(false)
-    .set_flag_c(new_c == 1u8)
+    .set_flag_c(new_c == 1)
 
     if reg == Reg::HL {
         .write(.regs.hl(), res)
-        .clock += 16u64
+        .clock += 16
     } else {
         .regs.set8(reg, res)
-        .clock += 8u64
+        .clock += 8
     }
-    .regs.pc += 2u16
+    .regs.pc += 2
 }
 
 def CPU::op_rlc(&this, reg: Reg) {
-    if DEBUG println("RLC %s [UNIMPLEMENTED]", reg)
+    if DEBUG println("RLC %s", reg)
     let val = match reg {
         HL => .read(.regs.hl())
         else => .regs.get8(reg)
     }
-    let new_c = (val >> 7u8) & 1u8
-    let res = (val << 1u8) | new_c
+    let new_c = (val >> 7) & 1
+    let res = (val << 1) | new_c
 
-    .set_flag_z(res == 0u8)
+    .set_flag_z(res == 0)
     .set_flag_n(false)
     .set_flag_h(false)
-    .set_flag_c(new_c == 1u8)
+    .set_flag_c(new_c == 1)
 
     if reg == Reg::HL {
         .write(.regs.hl(), res)
-        .clock += 16u64
+        .clock += 16
     } else {
         .regs.set8(reg, res)
-        .clock += 8u64
+        .clock += 8
     }
-    .regs.pc += 2u16
+    .regs.pc += 2
 }
 
 def CPU::op_rl(&this, reg: Reg) {
-    if DEBUG println("RL %s [UNIMPLEMENTED]", reg)
+    if DEBUG println("RL %s", reg)
 
     let val = match reg {
         HL => .read(.regs.hl())
         else => .regs.get8(reg)
     }
     let carry = .flag_c() as u8
-    let new_c = (val >> 7u8) & 1u8
-    let res = (val << 1u8) | carry
+    let new_c = (val >> 7) & 1
+    let res = (val << 1) | carry
 
-    .set_flag_z(res == 0u8)
+    .set_flag_z(res == 0)
     .set_flag_n(false)
     .set_flag_h(false)
-    .set_flag_c(new_c == 1u8)
+    .set_flag_c(new_c == 1)
 
     if reg == Reg::HL {
         .write(.regs.hl(), res)
-        .clock += 16u64
+        .clock += 16
     } else {
         .regs.set8(reg, res)
-        .clock += 8u64
+        .clock += 8
     }
-    .regs.pc += 2u16
+    .regs.pc += 2
 }
 
 def CPU::op_sla(&this, reg: Reg) {
-    if DEBUG println("SLA %s [UNIMPLEMENTED]", reg)
+    if DEBUG println("SLA %s", reg)
     let val = match reg {
         HL => .read(.regs.hl())
         else => .regs.get8(reg)
     }
-    let new_c = val >> 7u8
-    let res = val << 1u8
+    let new_c = val >> 7
+    let res = val << 1
 
-    .set_flag_z(res == 0u8)
+    .set_flag_z(res == 0)
     .set_flag_n(false)
     .set_flag_h(false)
-    .set_flag_c(new_c == 1u8)
+    .set_flag_c(new_c == 1)
 
     if reg == Reg::HL {
         .write(.regs.hl(), res)
-        .clock += 16u64
+        .clock += 16
     } else {
         .regs.set8(reg, res)
-        .clock += 8u64
+        .clock += 8
     }
-    .regs.pc += 2u16
+    .regs.pc += 2
 }
 
 def CPU::op_sra(&this, reg: Reg) {
@@ -1162,20 +1151,20 @@ def CPU::op_sra(&this, reg: Reg) {
         else => .regs.get8(reg)
     }
 
-    let res = (val >> 1u8) | (val & 0x80u8)
-    .set_flag_z(res == 0u8)
+    let res = (val >> 1) | (val & 0x80)
+    .set_flag_z(res == 0)
     .set_flag_n(false)
     .set_flag_h(false)
-    .set_flag_c(val & 0x1u8 != 0u8)
+    .set_flag_c(val & 0x1 != 0)
 
     if reg == Reg::HL {
         .write(.regs.hl(), res)
-        .clock += 16u64
+        .clock += 16
     } else {
         .regs.set8(reg, res)
-        .clock += 8u64
+        .clock += 8
     }
-    .regs.pc += 2u16
+    .regs.pc += 2
 }
 
 def CPU::op_swap(&this, reg: Reg) {
@@ -1185,20 +1174,20 @@ def CPU::op_swap(&this, reg: Reg) {
         else => .regs.get8(reg)
     }
 
-    let res = (val >> 4u8) | (val << 4u8)
-    .set_flag_z(res == 0u8)
+    let res = (val >> 4) | (val << 4)
+    .set_flag_z(res == 0)
     .set_flag_n(false)
     .set_flag_h(false)
     .set_flag_c(false)
 
     if reg == Reg::HL {
         .write(.regs.hl(), res)
-        .clock += 16u64
+        .clock += 16
     } else {
         .regs.set8(reg, res)
-        .clock += 8u64
+        .clock += 8
     }
-    .regs.pc += 2u16
+    .regs.pc += 2
 }
 
 def CPU::op_srl(&this, reg: Reg) {
@@ -1208,47 +1197,47 @@ def CPU::op_srl(&this, reg: Reg) {
         else => .regs.get8(reg)
     }
 
-    let res = (val >> 1u8)
-    .set_flag_z(res == 0u8)
+    let res = (val >> 1)
+    .set_flag_z(res == 0)
     .set_flag_n(false)
     .set_flag_h(false)
-    .set_flag_c(val & 0x1u8 != 0u8)
+    .set_flag_c(val & 0x1 != 0)
 
     if reg == Reg::HL {
         .write(.regs.hl(), res)
-        .clock += 16u64
+        .clock += 16
     } else {
         .regs.set8(reg, res)
-        .clock += 8u64
+        .clock += 8
     }
-    .regs.pc += 2u16
+    .regs.pc += 2
 }
 
 def CPU::handle_cb_instruction(&this) {
-    let cb_opcode = .read(.regs.pc + 1u16)
+    let cb_opcode = .read(.regs.pc + 1)
     if DEBUG print("(%02x): ", cb_opcode)
 
-    let reg = Reg::from_bits(cb_opcode & 0b111u8)
-    let bit = (cb_opcode >> 3u8) & 0b111u8 // Only for BIT, RES, SET
+    let reg = Reg::from_bits(cb_opcode & 0b111)
+    let bit = (cb_opcode >> 3) & 0b111 // Only for BIT, RES, SET
 
-    match cb_opcode >> 4u8 {
-        0x4u8 | 0x5u8 | 0x6u8 | 0x7u8 => .op_bit(bit, reg)
-        0x8u8 | 0x9u8 | 0xau8 | 0xbu8  => {
+    match cb_opcode >> 4 {
+        0x4 | 0x5 | 0x6 | 0x7 => .op_bit(bit, reg)
+        0x8 | 0x9 | 0xa | 0xb => {
             .op_set_bit(bit, reg, false)
         }
-        0xcu8 | 0xdu8 | 0xeu8 | 0xfu8 => {
-            let bit = (cb_opcode >> 3u8) & 0b111u8
+        0xc | 0xd | 0xe | 0xf => {
+            let bit = (cb_opcode >> 3) & 0b111
             .op_set_bit(bit, reg, true)
         }
-        else => match cb_opcode >> 3u8 {
-            0x0u8 => .op_rlc(reg)
-            0x1u8 => .op_rrc(reg)
-            0x2u8 => .op_rl(reg)
-            0x3u8 => .op_rr(reg)
-            0x4u8 => .op_sla(reg)
-            0x5u8 => .op_sra(reg)
-            0x6u8 => .op_swap(reg)
-            0x7u8 => .op_srl(reg)
+        else => match cb_opcode >> 3 {
+            0x0 => .op_rlc(reg)
+            0x1 => .op_rrc(reg)
+            0x2 => .op_rl(reg)
+            0x3 => .op_rr(reg)
+            0x4 => .op_sla(reg)
+            0x5 => .op_sra(reg)
+            0x6 => .op_swap(reg)
+            0x7 => .op_srl(reg)
             else => panic("Invalid CB opcode")
         }
     }
@@ -1260,7 +1249,7 @@ let inst_count: i64
 
 def CPU::dump_state(&this) {
     let opcode = .read(.regs.pc)
-    print("0x%04X: %02X  (%02X %02X)  ", .regs.pc, opcode, .read(.regs.pc + 1u16), .read(.regs.pc + 2u16))
+    print("0x%04X: %02X  (%02X %02X)  ", .regs.pc, opcode, .read(.regs.pc + 1), .read(.regs.pc + 2))
     print("%s", if .flag_z() then "Z" else "-");
     print("%s", if .flag_n() then "N" else "-");
     print("%s", if .flag_h() then "H" else "-");
@@ -1289,298 +1278,298 @@ def CPU::handle_instruction(&this) {
         //     .dump_state()
         // }
         let MIN = 400000i64
-        let MAX = MIN + 400000i64
+        let MAX = MIN + 400000
         if inst_count >= MIN and inst_count < MAX {
             .dump_state()
         } else if inst_count >= MAX {
             exit(0)
         }
-        inst_count += 1i64
+        inst_count += 1
     }
 
 
     if DEBUG print("0x%04x: (%02x): ", .regs.pc, opcode)
     match opcode {
         // 0x0y
-        0x00u8 => .op_nop()
-        0x01u8 => .op_ld_r16_imm(Reg::BC)
-        0x02u8 => .op_ld_r16_a(Reg::BC)
-        0x03u8 => .op_inc_r16(Reg::BC, offset: 1i16)
-        0x04u8 => .op_inc_r(Reg::B, offset: 1i8)
-        0x05u8 => .op_inc_r(Reg::B, offset: -1i8)
-        0x06u8 => .op_ld_r_imm(Reg::B)
-        0x07u8 => .op_rlca()
-        0x08u8 => .op_ld_imm16_sp()
-        0x09u8 => .op_add_hl_r16(Reg::BC)
-        0x0au8 => .op_ld_r_r16(Reg::A, Reg::BC)
-        0x0bu8 => .op_inc_r16(Reg::BC, offset: -1i16)
-        0x0cu8 => .op_inc_r(Reg::C, offset: 1i8)
-        0x0du8 => .op_inc_r(Reg::C, offset: -1i8)
-        0x0eu8 => .op_ld_r_imm(Reg::C)
-        0x0fu8 => .op_rrca()
+        0x00 => .op_nop()
+        0x01 => .op_ld_r16_imm(Reg::BC)
+        0x02 => .op_ld_r16_a(Reg::BC)
+        0x03 => .op_inc_r16(Reg::BC, offset: 1)
+        0x04 => .op_inc_r(Reg::B, offset: 1)
+        0x05 => .op_inc_r(Reg::B, offset: -1)
+        0x06 => .op_ld_r_imm(Reg::B)
+        0x07 => .op_rlca()
+        0x08 => .op_ld_imm16_sp()
+        0x09 => .op_add_hl_r16(Reg::BC)
+        0x0a => .op_ld_r_r16(Reg::A, Reg::BC)
+        0x0b => .op_inc_r16(Reg::BC, offset: -1)
+        0x0c => .op_inc_r(Reg::C, offset: 1)
+        0x0d => .op_inc_r(Reg::C, offset: -1)
+        0x0e => .op_ld_r_imm(Reg::C)
+        0x0f => .op_rrca()
 
         // 0x1y
-        0x11u8 => .op_ld_r16_imm(Reg::DE)
-        0x12u8 => .op_ld_r16_a(Reg::DE)
-        0x13u8 => .op_inc_r16(Reg::DE, offset: 1i16)
-        0x14u8 => .op_inc_r(Reg::D, offset: 1i8)
-        0x15u8 => .op_inc_r(Reg::D, offset: -1i8)
-        0x16u8 => .op_ld_r_imm(Reg::D)
-        0x17u8 => .op_rla()
-        0x18u8 => .op_jmp_rel(Cond::None)
-        0x19u8 => .op_add_hl_r16(Reg::DE)
-        0x1au8 => .op_ld_r_r16(dst: Reg::A, src: Reg::DE)
-        0x1bu8 => .op_inc_r16(Reg::DE, offset: -1i16)
-        0x1cu8 => .op_inc_r(Reg::E, offset: 1i8)
-        0x1du8 => .op_inc_r(Reg::E, offset: -1i8)
-        0x1eu8 => .op_ld_r_imm(Reg::E)
-        0x1fu8 => .op_rra()
+        0x11 => .op_ld_r16_imm(Reg::DE)
+        0x12 => .op_ld_r16_a(Reg::DE)
+        0x13 => .op_inc_r16(Reg::DE, offset: 1)
+        0x14 => .op_inc_r(Reg::D, offset: 1)
+        0x15 => .op_inc_r(Reg::D, offset: -1)
+        0x16 => .op_ld_r_imm(Reg::D)
+        0x17 => .op_rla()
+        0x18 => .op_jmp_rel(Cond::None)
+        0x19 => .op_add_hl_r16(Reg::DE)
+        0x1a => .op_ld_r_r16(dst: Reg::A, src: Reg::DE)
+        0x1b => .op_inc_r16(Reg::DE, offset: -1)
+        0x1c => .op_inc_r(Reg::E, offset: 1)
+        0x1d => .op_inc_r(Reg::E, offset: -1)
+        0x1e => .op_ld_r_imm(Reg::E)
+        0x1f => .op_rra()
 
         // 0x2y
-        0x20u8 => .op_jmp_rel(Cond::NZ)
-        0x21u8 => .op_ld_r16_imm(Reg::HL)
-        0x22u8 => .op_ldi_hl_a(inc: 1i16)
-        0x23u8 => .op_inc_r16(Reg::HL, offset: 1i16)
-        0x24u8 => .op_inc_r(Reg::H, offset: 1i8)
-        0x25u8 => .op_inc_r(Reg::H, offset: -1i8)
-        0x26u8 => .op_ld_r_imm(Reg::H)
-        0x27u8 => .op_daa()
-        0x28u8 => .op_jmp_rel(Cond::Z)
-        0x29u8 => .op_add_hl_r16(Reg::HL)
-        0x2au8 => .op_ldi_a_hl(inc: 1i16)
-        0x2bu8 => .op_inc_r16(Reg::HL, offset: -1i16)
-        0x2cu8 => .op_inc_r(Reg::L, offset: 1i8)
-        0x2du8 => .op_inc_r(Reg::L, offset: -1i8)
-        0x2eu8 => .op_ld_r_imm(Reg::L)
-        0x2fu8 => .op_cpl()
+        0x20 => .op_jmp_rel(Cond::NZ)
+        0x21 => .op_ld_r16_imm(Reg::HL)
+        0x22 => .op_ldi_hl_a(inc: 1)
+        0x23 => .op_inc_r16(Reg::HL, offset: 1)
+        0x24 => .op_inc_r(Reg::H, offset: 1)
+        0x25 => .op_inc_r(Reg::H, offset: -1)
+        0x26 => .op_ld_r_imm(Reg::H)
+        0x27 => .op_daa()
+        0x28 => .op_jmp_rel(Cond::Z)
+        0x29 => .op_add_hl_r16(Reg::HL)
+        0x2a => .op_ldi_a_hl(inc: 1)
+        0x2b => .op_inc_r16(Reg::HL, offset: -1)
+        0x2c => .op_inc_r(Reg::L, offset: 1)
+        0x2d => .op_inc_r(Reg::L, offset: -1)
+        0x2e => .op_ld_r_imm(Reg::L)
+        0x2f => .op_cpl()
 
         // 0x3y
-        0x30u8 => .op_jmp_rel(Cond::NC)
-        0x31u8 => .op_ld_r16_imm(Reg::SP)
-        0x32u8 => .op_ldi_hl_a(inc: -1i16)
-        0x33u8 => .op_inc_r16(Reg::SP, offset: 1i16)
-        0x34u8 => .op_inc_mem_hl(offset: 1i8)
-        0x35u8 => .op_inc_mem_hl(offset: -1i8)
-        0x36u8 => .op_ld_mem_hl_imm()
-        0x37u8 => .op_scf()
-        0x38u8 => .op_jmp_rel(Cond::C)
-        0x39u8 => .op_add_hl_r16(Reg::SP)
-        0x3au8 => .op_ldi_a_hl(inc: -1i16)
-        0x3bu8 => .op_inc_r16(Reg::SP, offset: -1i16)
-        0x3cu8 => .op_inc_r(Reg::A, offset: 1i8)
-        0x3du8 => .op_inc_r(Reg::A, offset: -1i8)
-        0x3eu8 => .op_ld_r_imm(Reg::A)
-        0x3fu8 => .op_ccf()
+        0x30 => .op_jmp_rel(Cond::NC)
+        0x31 => .op_ld_r16_imm(Reg::SP)
+        0x32 => .op_ldi_hl_a(inc: -1)
+        0x33 => .op_inc_r16(Reg::SP, offset: 1)
+        0x34 => .op_inc_mem_hl(offset: 1)
+        0x35 => .op_inc_mem_hl(offset: -1)
+        0x36 => .op_ld_mem_hl_imm()
+        0x37 => .op_scf()
+        0x38 => .op_jmp_rel(Cond::C)
+        0x39 => .op_add_hl_r16(Reg::SP)
+        0x3a => .op_ldi_a_hl(inc: -1)
+        0x3b => .op_inc_r16(Reg::SP, offset: -1)
+        0x3c => .op_inc_r(Reg::A, offset: 1)
+        0x3d => .op_inc_r(Reg::A, offset: -1)
+        0x3e => .op_ld_r_imm(Reg::A)
+        0x3f => .op_ccf()
 
         // 0x4y
-        0x40u8 => .op_ld_r_r(dst: Reg::B, src: Reg::B)
-        0x41u8 => .op_ld_r_r(dst: Reg::B, src: Reg::C)
-        0x42u8 => .op_ld_r_r(dst: Reg::B, src: Reg::D)
-        0x43u8 => .op_ld_r_r(dst: Reg::B, src: Reg::E)
-        0x44u8 => .op_ld_r_r(dst: Reg::B, src: Reg::H)
-        0x45u8 => .op_ld_r_r(dst: Reg::B, src: Reg::L)
-        0x46u8 => .op_ld_r_hl(dst: Reg::B)
-        0x47u8 => .op_ld_r_r(dst: Reg::B, src: Reg::A)
-        0x48u8 => .op_ld_r_r(dst: Reg::C, src: Reg::B)
-        0x49u8 => .op_ld_r_r(dst: Reg::C, src: Reg::C)
-        0x4au8 => .op_ld_r_r(dst: Reg::C, src: Reg::D)
-        0x4bu8 => .op_ld_r_r(dst: Reg::C, src: Reg::E)
-        0x4cu8 => .op_ld_r_r(dst: Reg::C, src: Reg::H)
-        0x4du8 => .op_ld_r_r(dst: Reg::C, src: Reg::L)
-        0x4eu8 => .op_ld_r_hl(Reg::C)
-        0x4fu8 => .op_ld_r_r(dst: Reg::C, src: Reg::A)
+        0x40 => .op_ld_r_r(dst: Reg::B, src: Reg::B)
+        0x41 => .op_ld_r_r(dst: Reg::B, src: Reg::C)
+        0x42 => .op_ld_r_r(dst: Reg::B, src: Reg::D)
+        0x43 => .op_ld_r_r(dst: Reg::B, src: Reg::E)
+        0x44 => .op_ld_r_r(dst: Reg::B, src: Reg::H)
+        0x45 => .op_ld_r_r(dst: Reg::B, src: Reg::L)
+        0x46 => .op_ld_r_hl(dst: Reg::B)
+        0x47 => .op_ld_r_r(dst: Reg::B, src: Reg::A)
+        0x48 => .op_ld_r_r(dst: Reg::C, src: Reg::B)
+        0x49 => .op_ld_r_r(dst: Reg::C, src: Reg::C)
+        0x4a => .op_ld_r_r(dst: Reg::C, src: Reg::D)
+        0x4b => .op_ld_r_r(dst: Reg::C, src: Reg::E)
+        0x4c => .op_ld_r_r(dst: Reg::C, src: Reg::H)
+        0x4d => .op_ld_r_r(dst: Reg::C, src: Reg::L)
+        0x4e => .op_ld_r_hl(Reg::C)
+        0x4f => .op_ld_r_r(dst: Reg::C, src: Reg::A)
 
         // 0x5y
-        0x50u8 => .op_ld_r_r(dst: Reg::D, src: Reg::B)
-        0x51u8 => .op_ld_r_r(dst: Reg::D, src: Reg::C)
-        0x52u8 => .op_ld_r_r(dst: Reg::D, src: Reg::D)
-        0x53u8 => .op_ld_r_r(dst: Reg::D, src: Reg::E)
-        0x54u8 => .op_ld_r_r(dst: Reg::D, src: Reg::H)
-        0x55u8 => .op_ld_r_r(dst: Reg::D, src: Reg::L)
-        0x56u8 => .op_ld_r_hl(Reg::D)
-        0x57u8 => .op_ld_r_r(dst: Reg::D, src: Reg::A)
-        0x58u8 => .op_ld_r_r(dst: Reg::E, src: Reg::B)
-        0x59u8 => .op_ld_r_r(dst: Reg::E, src: Reg::C)
-        0x5au8 => .op_ld_r_r(dst: Reg::E, src: Reg::D)
-        0x5bu8 => .op_ld_r_r(dst: Reg::E, src: Reg::E)
-        0x5cu8 => .op_ld_r_r(dst: Reg::E, src: Reg::H)
-        0x5du8 => .op_ld_r_r(dst: Reg::E, src: Reg::L)
-        0x5eu8 => .op_ld_r_hl(Reg::E)
-        0x5fu8 => .op_ld_r_r(dst: Reg::E, src: Reg::A)
+        0x50 => .op_ld_r_r(dst: Reg::D, src: Reg::B)
+        0x51 => .op_ld_r_r(dst: Reg::D, src: Reg::C)
+        0x52 => .op_ld_r_r(dst: Reg::D, src: Reg::D)
+        0x53 => .op_ld_r_r(dst: Reg::D, src: Reg::E)
+        0x54 => .op_ld_r_r(dst: Reg::D, src: Reg::H)
+        0x55 => .op_ld_r_r(dst: Reg::D, src: Reg::L)
+        0x56 => .op_ld_r_hl(Reg::D)
+        0x57 => .op_ld_r_r(dst: Reg::D, src: Reg::A)
+        0x58 => .op_ld_r_r(dst: Reg::E, src: Reg::B)
+        0x59 => .op_ld_r_r(dst: Reg::E, src: Reg::C)
+        0x5a => .op_ld_r_r(dst: Reg::E, src: Reg::D)
+        0x5b => .op_ld_r_r(dst: Reg::E, src: Reg::E)
+        0x5c => .op_ld_r_r(dst: Reg::E, src: Reg::H)
+        0x5d => .op_ld_r_r(dst: Reg::E, src: Reg::L)
+        0x5e => .op_ld_r_hl(Reg::E)
+        0x5f => .op_ld_r_r(dst: Reg::E, src: Reg::A)
 
         // 0x6y
-        0x60u8 => .op_ld_r_r(dst: Reg::H, src: Reg::B)
-        0x61u8 => .op_ld_r_r(dst: Reg::H, src: Reg::C)
-        0x62u8 => .op_ld_r_r(dst: Reg::H, src: Reg::D)
-        0x63u8 => .op_ld_r_r(dst: Reg::H, src: Reg::E)
-        0x64u8 => .op_ld_r_r(dst: Reg::H, src: Reg::H)
-        0x65u8 => .op_ld_r_r(dst: Reg::H, src: Reg::L)
-        0x66u8 => .op_ld_r_hl(Reg::H)
-        0x67u8 => .op_ld_r_r(dst: Reg::H, src: Reg::A)
-        0x68u8 => .op_ld_r_r(dst: Reg::L, src: Reg::B)
-        0x69u8 => .op_ld_r_r(dst: Reg::L, src: Reg::C)
-        0x6au8 => .op_ld_r_r(dst: Reg::L, src: Reg::D)
-        0x6bu8 => .op_ld_r_r(dst: Reg::L, src: Reg::E)
-        0x6cu8 => .op_ld_r_r(dst: Reg::L, src: Reg::H)
-        0x6du8 => .op_ld_r_r(dst: Reg::L, src: Reg::L)
-        0x6eu8 => .op_ld_r_hl(Reg::L)
-        0x6fu8 => .op_ld_r_r(dst: Reg::L, src: Reg::A)
+        0x60 => .op_ld_r_r(dst: Reg::H, src: Reg::B)
+        0x61 => .op_ld_r_r(dst: Reg::H, src: Reg::C)
+        0x62 => .op_ld_r_r(dst: Reg::H, src: Reg::D)
+        0x63 => .op_ld_r_r(dst: Reg::H, src: Reg::E)
+        0x64 => .op_ld_r_r(dst: Reg::H, src: Reg::H)
+        0x65 => .op_ld_r_r(dst: Reg::H, src: Reg::L)
+        0x66 => .op_ld_r_hl(Reg::H)
+        0x67 => .op_ld_r_r(dst: Reg::H, src: Reg::A)
+        0x68 => .op_ld_r_r(dst: Reg::L, src: Reg::B)
+        0x69 => .op_ld_r_r(dst: Reg::L, src: Reg::C)
+        0x6a => .op_ld_r_r(dst: Reg::L, src: Reg::D)
+        0x6b => .op_ld_r_r(dst: Reg::L, src: Reg::E)
+        0x6c => .op_ld_r_r(dst: Reg::L, src: Reg::H)
+        0x6d => .op_ld_r_r(dst: Reg::L, src: Reg::L)
+        0x6e => .op_ld_r_hl(Reg::L)
+        0x6f => .op_ld_r_r(dst: Reg::L, src: Reg::A)
 
         // 0x7y
-        0x70u8 => .op_ld_hl_r(src: Reg::B)
-		0x71u8 => .op_ld_hl_r(src: Reg::C)
-		0x72u8 => .op_ld_hl_r(src: Reg::D)
-		0x73u8 => .op_ld_hl_r(src: Reg::E)
-		0x74u8 => .op_ld_hl_r(src: Reg::H)
-		0x75u8 => .op_ld_hl_r(src: Reg::L)
-		0x76u8 => .op_halt()
-		0x77u8 => .op_ld_hl_r(src: Reg::A)
-        0x78u8 => .op_ld_r_r(dst: Reg::A, src: Reg::B)
-		0x79u8 => .op_ld_r_r(dst: Reg::A, src: Reg::C)
-		0x7au8 => .op_ld_r_r(dst: Reg::A, src: Reg::D)
-		0x7bu8 => .op_ld_r_r(dst: Reg::A, src: Reg::E)
-		0x7cu8 => .op_ld_r_r(dst: Reg::A, src: Reg::H)
-		0x7du8 => .op_ld_r_r(dst: Reg::A, src: Reg::L)
-        0x7eu8 => .op_ld_r_hl(Reg::A)
-        0x7fu8 => .op_ld_r_r(dst: Reg::A, src: Reg::A)
+        0x70 => .op_ld_hl_r(src: Reg::B)
+		0x71 => .op_ld_hl_r(src: Reg::C)
+		0x72 => .op_ld_hl_r(src: Reg::D)
+		0x73 => .op_ld_hl_r(src: Reg::E)
+		0x74 => .op_ld_hl_r(src: Reg::H)
+		0x75 => .op_ld_hl_r(src: Reg::L)
+		0x76 => .op_halt()
+		0x77 => .op_ld_hl_r(src: Reg::A)
+        0x78 => .op_ld_r_r(dst: Reg::A, src: Reg::B)
+		0x79 => .op_ld_r_r(dst: Reg::A, src: Reg::C)
+		0x7a => .op_ld_r_r(dst: Reg::A, src: Reg::D)
+		0x7b => .op_ld_r_r(dst: Reg::A, src: Reg::E)
+		0x7c => .op_ld_r_r(dst: Reg::A, src: Reg::H)
+		0x7d => .op_ld_r_r(dst: Reg::A, src: Reg::L)
+        0x7e => .op_ld_r_hl(Reg::A)
+        0x7f => .op_ld_r_r(dst: Reg::A, src: Reg::A)
 
         // 0x8y
-        0x80u8 => .op_alu_r(ALU_ADD, Reg::B)
-        0x81u8 => .op_alu_r(ALU_ADD, Reg::C)
-        0x82u8 => .op_alu_r(ALU_ADD, Reg::D)
-        0x83u8 => .op_alu_r(ALU_ADD, Reg::E)
-        0x84u8 => .op_alu_r(ALU_ADD, Reg::H)
-        0x85u8 => .op_alu_r(ALU_ADD, Reg::L)
-        0x86u8 => .op_alu_r(ALU_ADD, Reg::HL)
-        0x87u8 => .op_alu_r(ALU_ADD, Reg::A)
-        0x88u8 => .op_alu_r(ALU_ADDC, Reg::B)
-        0x89u8 => .op_alu_r(ALU_ADDC, Reg::C)
-        0x8au8 => .op_alu_r(ALU_ADDC, Reg::D)
-        0x8bu8 => .op_alu_r(ALU_ADDC, Reg::E)
-        0x8cu8 => .op_alu_r(ALU_ADDC, Reg::H)
-        0x8du8 => .op_alu_r(ALU_ADDC, Reg::L)
-        0x8eu8 => .op_alu_r(ALU_ADDC, Reg::HL)
-        0x8fu8 => .op_alu_r(ALU_ADDC, Reg::A)
+        0x80 => .op_alu_r(ALU_ADD, Reg::B)
+        0x81 => .op_alu_r(ALU_ADD, Reg::C)
+        0x82 => .op_alu_r(ALU_ADD, Reg::D)
+        0x83 => .op_alu_r(ALU_ADD, Reg::E)
+        0x84 => .op_alu_r(ALU_ADD, Reg::H)
+        0x85 => .op_alu_r(ALU_ADD, Reg::L)
+        0x86 => .op_alu_r(ALU_ADD, Reg::HL)
+        0x87 => .op_alu_r(ALU_ADD, Reg::A)
+        0x88 => .op_alu_r(ALU_ADDC, Reg::B)
+        0x89 => .op_alu_r(ALU_ADDC, Reg::C)
+        0x8a => .op_alu_r(ALU_ADDC, Reg::D)
+        0x8b => .op_alu_r(ALU_ADDC, Reg::E)
+        0x8c => .op_alu_r(ALU_ADDC, Reg::H)
+        0x8d => .op_alu_r(ALU_ADDC, Reg::L)
+        0x8e => .op_alu_r(ALU_ADDC, Reg::HL)
+        0x8f => .op_alu_r(ALU_ADDC, Reg::A)
 
         // 0x9y
-        0x90u8 => .op_alu_r(ALU_SUB, Reg::B)
-        0x91u8 => .op_alu_r(ALU_SUB, Reg::C)
-        0x92u8 => .op_alu_r(ALU_SUB, Reg::D)
-        0x93u8 => .op_alu_r(ALU_SUB, Reg::E)
-        0x94u8 => .op_alu_r(ALU_SUB, Reg::H)
-        0x95u8 => .op_alu_r(ALU_SUB, Reg::L)
-        0x96u8 => .op_alu_r(ALU_SUB, Reg::HL)
-        0x97u8 => .op_alu_r(ALU_SUB, Reg::A)
-        0x98u8 => .op_alu_r(ALU_SUBC, Reg::B)
-        0x99u8 => .op_alu_r(ALU_SUBC, Reg::C)
-        0x9au8 => .op_alu_r(ALU_SUBC, Reg::D)
-        0x9bu8 => .op_alu_r(ALU_SUBC, Reg::E)
-        0x9cu8 => .op_alu_r(ALU_SUBC, Reg::H)
-        0x9du8 => .op_alu_r(ALU_SUBC, Reg::L)
-        0x9eu8 => .op_alu_r(ALU_SUBC, Reg::HL)
-        0x9fu8 => .op_alu_r(ALU_SUBC, Reg::A)
+        0x90 => .op_alu_r(ALU_SUB, Reg::B)
+        0x91 => .op_alu_r(ALU_SUB, Reg::C)
+        0x92 => .op_alu_r(ALU_SUB, Reg::D)
+        0x93 => .op_alu_r(ALU_SUB, Reg::E)
+        0x94 => .op_alu_r(ALU_SUB, Reg::H)
+        0x95 => .op_alu_r(ALU_SUB, Reg::L)
+        0x96 => .op_alu_r(ALU_SUB, Reg::HL)
+        0x97 => .op_alu_r(ALU_SUB, Reg::A)
+        0x98 => .op_alu_r(ALU_SUBC, Reg::B)
+        0x99 => .op_alu_r(ALU_SUBC, Reg::C)
+        0x9a => .op_alu_r(ALU_SUBC, Reg::D)
+        0x9b => .op_alu_r(ALU_SUBC, Reg::E)
+        0x9c => .op_alu_r(ALU_SUBC, Reg::H)
+        0x9d => .op_alu_r(ALU_SUBC, Reg::L)
+        0x9e => .op_alu_r(ALU_SUBC, Reg::HL)
+        0x9f => .op_alu_r(ALU_SUBC, Reg::A)
 
 
         // 0xay
-        0xa0u8 => .op_alu_r(ALU_AND, Reg::B)
-        0xa1u8 => .op_alu_r(ALU_AND, Reg::C)
-        0xa2u8 => .op_alu_r(ALU_AND, Reg::D)
-        0xa3u8 => .op_alu_r(ALU_AND, Reg::E)
-        0xa4u8 => .op_alu_r(ALU_AND, Reg::H)
-        0xa5u8 => .op_alu_r(ALU_AND, Reg::L)
-        0xa6u8 => .op_alu_r(ALU_AND, Reg::HL)
-        0xa7u8 => .op_alu_r(ALU_AND, Reg::A)
-        0xa8u8 => .op_alu_r(ALU_XOR, Reg::B)
-        0xa9u8 => .op_alu_r(ALU_XOR, Reg::C)
-        0xaau8 => .op_alu_r(ALU_XOR, Reg::D)
-        0xabu8 => .op_alu_r(ALU_XOR, Reg::E)
-        0xacu8 => .op_alu_r(ALU_XOR, Reg::H)
-        0xadu8 => .op_alu_r(ALU_XOR, Reg::L)
-        0xaeu8 => .op_alu_r(ALU_XOR, Reg::HL)
-        0xafu8 => .op_alu_r(ALU_XOR, Reg::A)
+        0xa0 => .op_alu_r(ALU_AND, Reg::B)
+        0xa1 => .op_alu_r(ALU_AND, Reg::C)
+        0xa2 => .op_alu_r(ALU_AND, Reg::D)
+        0xa3 => .op_alu_r(ALU_AND, Reg::E)
+        0xa4 => .op_alu_r(ALU_AND, Reg::H)
+        0xa5 => .op_alu_r(ALU_AND, Reg::L)
+        0xa6 => .op_alu_r(ALU_AND, Reg::HL)
+        0xa7 => .op_alu_r(ALU_AND, Reg::A)
+        0xa8 => .op_alu_r(ALU_XOR, Reg::B)
+        0xa9 => .op_alu_r(ALU_XOR, Reg::C)
+        0xaa => .op_alu_r(ALU_XOR, Reg::D)
+        0xab => .op_alu_r(ALU_XOR, Reg::E)
+        0xac => .op_alu_r(ALU_XOR, Reg::H)
+        0xad => .op_alu_r(ALU_XOR, Reg::L)
+        0xae => .op_alu_r(ALU_XOR, Reg::HL)
+        0xaf => .op_alu_r(ALU_XOR, Reg::A)
 
         // 0xby
-        0xb0u8 => .op_alu_r(ALU_OR, Reg::B)
-        0xb1u8 => .op_alu_r(ALU_OR, Reg::C)
-        0xb2u8 => .op_alu_r(ALU_OR, Reg::D)
-        0xb3u8 => .op_alu_r(ALU_OR, Reg::E)
-        0xb4u8 => .op_alu_r(ALU_OR, Reg::H)
-        0xb5u8 => .op_alu_r(ALU_OR, Reg::L)
-        0xb6u8 => .op_alu_r(ALU_OR, Reg::HL)
-        0xb7u8 => .op_alu_r(ALU_OR, Reg::A)
-        0xb8u8 => .op_alu_r(ALU_CP, Reg::B)
-        0xb9u8 => .op_alu_r(ALU_CP, Reg::C)
-        0xbau8 => .op_alu_r(ALU_CP, Reg::D)
-        0xbbu8 => .op_alu_r(ALU_CP, Reg::E)
-        0xbcu8 => .op_alu_r(ALU_CP, Reg::H)
-        0xbdu8 => .op_alu_r(ALU_CP, Reg::L)
-        0xbeu8 => .op_alu_r(ALU_CP, Reg::HL)
-        0xbfu8 => .op_alu_r(ALU_CP, Reg::A)
+        0xb0 => .op_alu_r(ALU_OR, Reg::B)
+        0xb1 => .op_alu_r(ALU_OR, Reg::C)
+        0xb2 => .op_alu_r(ALU_OR, Reg::D)
+        0xb3 => .op_alu_r(ALU_OR, Reg::E)
+        0xb4 => .op_alu_r(ALU_OR, Reg::H)
+        0xb5 => .op_alu_r(ALU_OR, Reg::L)
+        0xb6 => .op_alu_r(ALU_OR, Reg::HL)
+        0xb7 => .op_alu_r(ALU_OR, Reg::A)
+        0xb8 => .op_alu_r(ALU_CP, Reg::B)
+        0xb9 => .op_alu_r(ALU_CP, Reg::C)
+        0xba => .op_alu_r(ALU_CP, Reg::D)
+        0xbb => .op_alu_r(ALU_CP, Reg::E)
+        0xbc => .op_alu_r(ALU_CP, Reg::H)
+        0xbd => .op_alu_r(ALU_CP, Reg::L)
+        0xbe => .op_alu_r(ALU_CP, Reg::HL)
+        0xbf => .op_alu_r(ALU_CP, Reg::A)
 
         // 0xcy
-        0xc0u8 => .op_ret(Cond::NZ)
-        0xc1u8 => .op_pop16(Reg::BC)
-        0xc2u8 => .op_jmp(Cond::NZ)
-        0xc3u8 => .op_jmp(Cond::None)
-        0xc4u8 => .op_call(Cond::NZ)
-        0xc5u8 => .op_push16(Reg::BC)
-        0xc6u8 => .op_alu_imm(ALU_ADD)
-        0xc7u8 => .op_rst(0x00u16)
-        0xc8u8 => .op_ret(Cond::Z)
-        0xc9u8 => .op_ret(Cond::None)
-        0xcau8 => .op_jmp(Cond::Z)
-        0xcbu8 => .handle_cb_instruction()
-        0xccu8 => .op_call(Cond::Z)
-        0xcdu8 => .op_call(Cond::None)
-        0xceu8 => .op_alu_imm(ALU_ADDC)
-        0xcfu8 => .op_rst(0x08u16)
+        0xc0 => .op_ret(Cond::NZ)
+        0xc1 => .op_pop16(Reg::BC)
+        0xc2 => .op_jmp(Cond::NZ)
+        0xc3 => .op_jmp(Cond::None)
+        0xc4 => .op_call(Cond::NZ)
+        0xc5 => .op_push16(Reg::BC)
+        0xc6 => .op_alu_imm(ALU_ADD)
+        0xc7 => .op_rst(addr: 0x00)
+        0xc8 => .op_ret(Cond::Z)
+        0xc9 => .op_ret(Cond::None)
+        0xca => .op_jmp(Cond::Z)
+        0xcb => .handle_cb_instruction()
+        0xcc => .op_call(Cond::Z)
+        0xcd => .op_call(Cond::None)
+        0xce => .op_alu_imm(ALU_ADDC)
+        0xcf => .op_rst(addr: 0x08)
 
         // 0xdy
-        0xd0u8 => .op_ret(Cond::NC)
-        0xd1u8 => .op_pop16(Reg::DE)
-        0xd2u8 => .op_jmp(Cond::NC)
-        0xd4u8 => .op_call(Cond::NC)
-        0xd5u8 => .op_push16(Reg::DE)
-        0xd6u8 => .op_alu_imm(ALU_SUB)
-        0xd7u8 => .op_rst(0x10u16)
-        0xd8u8 => .op_ret(Cond::C)
-        0xd9u8 => .op_reti()
-        0xdau8 => .op_jmp(Cond::C)
-        0xdcu8 => .op_call(Cond::C)
-        0xdeu8 => .op_alu_imm(ALU_SUBC)
-        0xdfu8 => .op_rst(0x18u16)
+        0xd0 => .op_ret(Cond::NC)
+        0xd1 => .op_pop16(Reg::DE)
+        0xd2 => .op_jmp(Cond::NC)
+        0xd4 => .op_call(Cond::NC)
+        0xd5 => .op_push16(Reg::DE)
+        0xd6 => .op_alu_imm(ALU_SUB)
+        0xd7 => .op_rst(addr: 0x10)
+        0xd8 => .op_ret(Cond::C)
+        0xd9 => .op_reti()
+        0xda => .op_jmp(Cond::C)
+        0xdc => .op_call(Cond::C)
+        0xde => .op_alu_imm(ALU_SUBC)
+        0xdf => .op_rst(addr: 0x18)
 
         // 0xey
-        0xe0u8 => .op_ld_ff00n_a()
-        0xe1u8 => .op_pop16(Reg::HL)
-        0xe2u8 => .op_ld_ff00c_a()
+        0xe0 => .op_ld_ff00n_a()
+        0xe1 => .op_pop16(Reg::HL)
+        0xe2 => .op_ld_ff00c_a()
 
-        0xe5u8 => .op_push16(Reg::HL)
-        0xe6u8 => .op_alu_imm(ALU_AND)
-        0xe7u8 => .op_rst(0x20u16)
-        0xe8u8 => .op_add_sp_imm()
-        0xe9u8 => .op_jmp_hl()
-        0xeau8 => .op_ld_imm_a()
+        0xe5 => .op_push16(Reg::HL)
+        0xe6 => .op_alu_imm(ALU_AND)
+        0xe7 => .op_rst(addr: 0x20)
+        0xe8 => .op_add_sp_imm()
+        0xe9 => .op_jmp_hl()
+        0xea => .op_ld_imm_a()
 
-        0xeeu8 => .op_alu_imm(ALU_XOR)
-        0xefu8 => .op_rst(0x28u16)
+        0xee => .op_alu_imm(ALU_XOR)
+        0xef => .op_rst(addr: 0x28)
 
         // 0xfy
-        0xf0u8 => .op_ld_a_ff00n()
-        0xf1u8 => .op_pop16(Reg::AF)
-        0xf2u8 => .op_ld_a_ff00c()
-        0xf3u8 => .op_di()
+        0xf0 => .op_ld_a_ff00n()
+        0xf1 => .op_pop16(Reg::AF)
+        0xf2 => .op_ld_a_ff00c()
+        0xf3 => .op_di()
 
-        0xf5u8 => .op_push16(Reg::AF)
-        0xf6u8 => .op_alu_imm(ALU_OR)
-        0xf7u8 => .op_rst(0x30u16)
-        0xf8u8 => .op_ld_hl_spn()
-        0xf9u8 => .op_ld_sp_hl()
-        0xfau8 => .op_ld_a_imm16()
-        0xfbu8 => .op_ei()
+        0xf5 => .op_push16(Reg::AF)
+        0xf6 => .op_alu_imm(ALU_OR)
+        0xf7 => .op_rst(addr: 0x30)
+        0xf8 => .op_ld_hl_spn()
+        0xf9 => .op_ld_sp_hl()
+        0xfa => .op_ld_a_imm16()
+        0xfb => .op_ei()
 
-        0xfeu8 => .op_alu_imm(ALU_CP)
-        0xffu8 => .op_rst(0x38u16)
+        0xfe => .op_alu_imm(ALU_CP)
+        0xff => .op_rst(addr: 0x38)
 
         else => panic(`Unknown opcode: {opcode:02x}`)
     }
